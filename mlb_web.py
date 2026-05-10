@@ -368,6 +368,80 @@ def player_year_by_year(player_id):
     })
 
 
+@app.route("/api/player/<int:player_id>/live")
+def player_live(player_id):
+    """Get player's current live game stats."""
+    info = statsapi.player_stat_data(player_id, type="season")
+    name = info.get("first_name", "") + " " + info.get("last_name", "")
+    position = info.get("position", "")
+    team_name = info.get("current_team", "")
+
+    result = {"name": name, "position": position, "team": team_name, "playing": False, "game": None, "player_stats": {}, "next_game": ""}
+
+    try:
+        teams = statsapi.lookup_team(team_name)
+        if not teams:
+            return jsonify(result)
+        team_id = teams[0]["id"]
+        schedule = statsapi.schedule(team=team_id)
+
+        # Find live game
+        live_game = None
+        for g in schedule:
+            if g["status"] == "In Progress":
+                live_game = g
+                break
+
+        if not live_game:
+            # Find next upcoming
+            upcoming = [g for g in schedule if g["status"] not in ("Final", "In Progress")]
+            if upcoming:
+                result["next_game"] = f"Next: {upcoming[0]['away_name']} @ {upcoming[0]['home_name']} — {upcoming[0]['game_date']}"
+            return jsonify(result)
+
+        result["playing"] = True
+        result["game"] = {
+            "game_id": live_game["game_id"],
+            "away": live_game["away_name"],
+            "home": live_game["home_name"],
+            "away_score": live_game.get("away_score", 0),
+            "home_score": live_game.get("home_score", 0),
+            "inning": live_game.get("current_inning", ""),
+            "inning_state": live_game.get("inning_state", ""),
+        }
+
+        # Get player's game stats from boxscore
+        try:
+            box = statsapi.boxscore_data(live_game["game_id"])
+            # Search both teams for the player
+            for side in ["away", "home"]:
+                batters = box.get(side + "Batters", [])
+                for batter_id in batters:
+                    if batter_id == player_id:
+                        player_box = box.get(side + "BattingTotals", {}) if batter_id == "totals" else None
+                        # Get individual batter stats
+                        batter_data = box.get(side + "Batters", {})
+                        break
+                pitchers = box.get(side + "Pitchers", [])
+                for pitcher_id in pitchers:
+                    if pitcher_id == player_id:
+                        break
+
+            # Try gameLog for today's stats
+            game_log = statsapi.player_stat_data(player_id, type="gameLog")
+            if game_log.get("stats"):
+                gl = game_log["stats"][0].get("stats", {})
+                if gl:
+                    result["player_stats"] = gl
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+
+    return jsonify(result)
+
+
 @app.route("/api/player/<int:player_id>/statcast")
 def player_statcast(player_id):
     """Get Statcast advanced metrics via pybaseball."""

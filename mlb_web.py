@@ -175,33 +175,97 @@ def player_stats(player_id):
     except Exception:
         pass
 
-    # Anomaly check
+    # Anomaly check with historical record comparisons
     t = get_thresholds()
     anomalies = []
+    comparisons = []  # Historical records to compare against
     games = int(stats.get("gamesPlayed", 0))
+
+    # Historical single-season records
+    RECORDS = {
+        "hr": {"record": 73, "holder": "Barry Bonds (2001)", "notable": [
+            {"val": 62, "holder": "Aaron Judge (2022)"},
+            {"val": 61, "holder": "Roger Maris (1961)"},
+        ]},
+        "avg": {"record": 0.406, "holder": "Ted Williams (1941)", "notable": [
+            {"val": 0.394, "holder": "Tony Gwynn (1994)"},
+            {"val": 0.390, "holder": "George Brett (1980)"},
+        ]},
+        "hits": {"record": 262, "holder": "Ichiro Suzuki (2004)", "notable": [
+            {"val": 257, "holder": "George Sisler (1920)"},
+        ]},
+        "rbi": {"record": 191, "holder": "Hack Wilson (1930)", "notable": [
+            {"val": 165, "holder": "Manny Ramirez (1999)"},
+        ]},
+        "sb": {"record": 130, "holder": "Rickey Henderson (1982)", "notable": [
+            {"val": 110, "holder": "Vince Coleman (1985)"},
+        ]},
+        "era": {"record": 1.12, "holder": "Bob Gibson (1968)", "notable": [
+            {"val": 1.56, "holder": "Dwight Gooden (1985)"},
+            {"val": 1.74, "holder": "Pedro Martinez (2000)"},
+        ]},
+        "k_season": {"record": 383, "holder": "Nolan Ryan (1973)", "notable": [
+            {"val": 372, "holder": "Sandy Koufax (1965)"},
+        ]},
+        "wins": {"record": 27, "holder": "Steve Carlton (1972)", "notable": [
+            {"val": 24, "holder": "Justin Verlander (2011)"},
+        ]},
+    }
+
     if games > 20 and group == "hitting":
         bat_season = t.get("batting_season", {})
         avg = float(stats.get("avg", "0"))
         hr = int(stats.get("homeRuns", 0))
         hr_pace = (hr / games) * 162
+        hits_pace = (int(stats.get("hits", 0)) / games) * 162
         rbi_pace = (int(stats.get("rbi", 0)) / games) * 162
+        sb_pace = (int(stats.get("stolenBases", 0)) / games) * 162
+
         if avg >= bat_season.get("avg_alltime", 0.37):
             anomalies.append({"msg": f"Batting .{int(avg*1000)} — ALL-TIME TERRITORY", "level": "alltime"})
+            comparisons.append({"stat": "AVG", "current": f".{int(avg*1000)}", "record": f".406", "holder": RECORDS["avg"]["holder"], "pct": round(avg / 0.406 * 100)})
         elif avg >= bat_season.get("avg_anomalous", 0.33):
             anomalies.append({"msg": f"Batting .{int(avg*1000)} — elite", "level": "alert"})
+            comparisons.append({"stat": "AVG", "current": f".{int(avg*1000)}", "record": ".406", "holder": RECORDS["avg"]["holder"], "pct": round(avg / 0.406 * 100)})
+
         if hr_pace >= bat_season.get("hr_pace_alltime", 52):
             anomalies.append({"msg": f"On pace for {int(hr_pace)} HRs — RECORD PACE", "level": "alltime"})
+            comparisons.append({"stat": "HR Pace", "current": str(int(hr_pace)), "record": "73", "holder": RECORDS["hr"]["holder"], "pct": round(hr_pace / 73 * 100)})
+            for n in RECORDS["hr"]["notable"]:
+                comparisons.append({"stat": "", "current": "", "record": str(n["val"]), "holder": n["holder"], "pct": round(hr_pace / n["val"] * 100)})
         elif hr_pace >= bat_season.get("hr_pace_anomalous", 39):
             anomalies.append({"msg": f"On pace for {int(hr_pace)} HRs", "level": "alert"})
+            comparisons.append({"stat": "HR Pace", "current": str(int(hr_pace)), "record": "73", "holder": RECORDS["hr"]["holder"], "pct": round(hr_pace / 73 * 100)})
+
         if rbi_pace >= 130:
             anomalies.append({"msg": f"On pace for {int(rbi_pace)} RBI", "level": "alert"})
+            comparisons.append({"stat": "RBI Pace", "current": str(int(rbi_pace)), "record": "191", "holder": RECORDS["rbi"]["holder"], "pct": round(rbi_pace / 191 * 100)})
+
+        if hits_pace >= 220:
+            comparisons.append({"stat": "Hits Pace", "current": str(int(hits_pace)), "record": "262", "holder": RECORDS["hits"]["holder"], "pct": round(hits_pace / 262 * 100)})
+
+        if sb_pace >= 50:
+            comparisons.append({"stat": "SB Pace", "current": str(int(sb_pace)), "record": "130", "holder": RECORDS["sb"]["holder"], "pct": round(sb_pace / 130 * 100)})
+
     elif games > 5 and group == "pitching":
         pitch_season = t.get("pitching_season", {})
         era = float(stats.get("era", "99"))
+        k = int(stats.get("strikeOuts", 0))
+        k_pace = (k / games) * 162 if games else 0
+        w = int(stats.get("wins", 0))
+        w_pace = (w / games) * 162 if games else 0
+
         if era <= pitch_season.get("era_alltime", 1.8):
             anomalies.append({"msg": f"{era:.2f} ERA — ALL-TIME TERRITORY", "level": "alltime"})
+            comparisons.append({"stat": "ERA", "current": f"{era:.2f}", "record": "1.12", "holder": RECORDS["era"]["holder"], "pct": round((1 - era/4.50) / (1 - 1.12/4.50) * 100)})
+            for n in RECORDS["era"]["notable"]:
+                comparisons.append({"stat": "", "current": "", "record": f"{n['val']:.2f}", "holder": n["holder"], "pct": 0})
         elif era <= pitch_season.get("era_anomalous", 2.5):
             anomalies.append({"msg": f"{era:.2f} ERA — elite", "level": "alert"})
+            comparisons.append({"stat": "ERA", "current": f"{era:.2f}", "record": "1.12", "holder": RECORDS["era"]["holder"], "pct": round((1 - era/4.50) / (1 - 1.12/4.50) * 100)})
+
+        if k_pace >= 250:
+            comparisons.append({"stat": "K Pace", "current": str(int(k_pace)), "record": "383", "holder": RECORDS["k_season"]["holder"], "pct": round(k_pace / 383 * 100)})
 
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),
@@ -209,6 +273,7 @@ def player_stats(player_id):
         "team": info.get("current_team", ""),
         "stats": stats,
         "anomalies": anomalies,
+        "comparisons": comparisons,
         "recent_games": recent_games[1:] if len(recent_games) > 1 else [],
         "last_game": recent_games[0].get("stats", {}) if recent_games and recent_games[0].get("type") == "latest" else {},
     })

@@ -681,12 +681,132 @@ def player_career(player_id):
         if whip <= 1.10 and ip >= 1000:
             anomalies.append({"msg": f"{whip:.2f} career WHIP — elite", "level": "alltime", "nugget": "A career WHIP under 1.10 over 1000+ IP is historically rare"})
 
+    # HOF pace comparisons — compare to greats at the same point in their career
+    pace_comps = []
+    try:
+        yby_info = statsapi.player_stat_data(player_id, type="yearByYear")
+        seasons_played = sum(1 for sg in yby_info.get("stats", []) if sg["group"] in ("hitting", "pitching") and sg.get("stats", {}).get("gamesPlayed"))
+    except Exception:
+        seasons_played = 0
+
+    if seasons_played >= 2:
+        # HOF cumulative stats through N seasons (curated data)
+        HOF_PACE_HITTING = {
+            "Barry Bonds": {3: {"hr": 84, "hits": 463}, 5: {"hr": 149, "hits": 828}, 7: {"hr": 227, "hits": 1183}, 10: {"hr": 374, "hits": 1679}, 15: {"hr": 567, "hits": 2252}},
+            "Hank Aaron": {3: {"hr": 69, "hits": 533}, 5: {"hr": 140, "hits": 959}, 7: {"hr": 219, "hits": 1397}, 10: {"hr": 342, "hits": 1963}, 15: {"hr": 510, "hits": 2860}},
+            "Willie Mays": {3: {"hr": 71, "hits": 432}, 5: {"hr": 152, "hits": 822}, 7: {"hr": 250, "hits": 1191}, 10: {"hr": 388, "hits": 1702}, 15: {"hr": 545, "hits": 2340}},
+            "Babe Ruth": {3: {"hr": 13, "hits": 209}, 5: {"hr": 103, "hits": 518}, 7: {"hr": 224, "hits": 862}, 10: {"hr": 399, "hits": 1321}, 15: {"hr": 611, "hits": 1860}},
+            "Mickey Mantle": {3: {"hr": 52, "hits": 404}, 5: {"hr": 131, "hits": 707}, 7: {"hr": 209, "hits": 1001}, 10: {"hr": 353, "hits": 1420}, 15: {"hr": 496, "hits": 1866}},
+            "Ted Williams": {3: {"hr": 68, "hits": 537}, 5: {"hr": 127, "hits": 893}, 7: {"hr": 176, "hits": 1196}, 10: {"hr": 298, "hits": 1633}, 15: {"hr": 421, "hits": 2153}},
+            "Mike Trout": {3: {"hr": 71, "hits": 413}, 5: {"hr": 152, "hits": 738}, 7: {"hr": 219, "hits": 1012}, 10: {"hr": 310, "hits": 1324}},
+            "Ken Griffey Jr.": {3: {"hr": 49, "hits": 417}, 5: {"hr": 132, "hits": 764}, 7: {"hr": 220, "hits": 1099}, 10: {"hr": 382, "hits": 1535}, 15: {"hr": 501, "hits": 2033}},
+            "Albert Pujols": {3: {"hr": 114, "hits": 555}, 5: {"hr": 201, "hits": 975}, 7: {"hr": 282, "hits": 1354}, 10: {"hr": 408, "hits": 1900}, 15: {"hr": 560, "hits": 2519}},
+        }
+        HOF_PACE_PITCHING = {
+            "Nolan Ryan": {3: {"k": 639, "wins": 42}, 5: {"k": 1079, "wins": 74}, 7: {"k": 1574, "wins": 113}, 10: {"k": 2243, "wins": 171}, 15: {"k": 3284, "wins": 234}},
+            "Randy Johnson": {3: {"k": 308, "wins": 22}, 5: {"k": 734, "wins": 56}, 7: {"k": 1236, "wins": 97}, 10: {"k": 2060, "wins": 152}, 15: {"k": 3122, "wins": 230}},
+            "Pedro Martinez": {3: {"k": 369, "wins": 30}, 5: {"k": 734, "wins": 65}, 7: {"k": 1239, "wins": 107}, 10: {"k": 1761, "wins": 148}},
+            "Greg Maddux": {3: {"k": 377, "wins": 36}, 5: {"k": 640, "wins": 70}, 7: {"k": 1014, "wins": 114}, 10: {"k": 1535, "wins": 176}, 15: {"k": 2216, "wins": 263}},
+            "Clayton Kershaw": {3: {"k": 434, "wins": 28}, 5: {"k": 809, "wins": 61}, 7: {"k": 1238, "wins": 98}, 10: {"k": 1774, "wins": 144}},
+            "Sandy Koufax": {3: {"k": 269, "wins": 17}, 5: {"k": 573, "wins": 44}, 7: {"k": 1063, "wins": 79}, 10: {"k": 1713, "wins": 129}},
+            "Bob Gibson": {3: {"k": 325, "wins": 24}, 5: {"k": 639, "wins": 60}, 7: {"k": 1030, "wins": 97}, 10: {"k": 1614, "wins": 148}},
+            "Walter Johnson": {3: {"k": 498, "wins": 57}, 5: {"k": 893, "wins": 107}, 7: {"k": 1324, "wins": 157}, 10: {"k": 1838, "wins": 226}, 15: {"k": 2563, "wins": 327}},
+        }
+
+        if group == "hitting":
+            hr = int(stats.get("homeRuns", 0))
+            hits = int(stats.get("hits", 0))
+            for name, data in HOF_PACE_HITTING.items():
+                # Find closest season bracket
+                bracket = None
+                for n in sorted(data.keys()):
+                    if seasons_played <= n:
+                        bracket = n
+                        break
+                if not bracket:
+                    bracket = max(data.keys())
+                if seasons_played > bracket + 2:
+                    continue
+                hof_hr = data[bracket]["hr"]
+                hof_hits = data[bracket]["hits"]
+                # Only show if player is within striking distance or ahead
+                if hr >= hof_hr * 0.75:
+                    diff = hr - hof_hr
+                    direction = "ahead of" if diff > 0 else "behind"
+                    pace_comps.append({
+                        "player": name,
+                        "stat": "HR",
+                        "current": hr,
+                        "hof_val": hof_hr,
+                        "through": f"Through {seasons_played} seasons",
+                        "bracket": bracket,
+                        "diff": abs(diff),
+                        "ahead": diff >= 0,
+                    })
+                if hits >= hof_hits * 0.75:
+                    diff = hits - hof_hits
+                    pace_comps.append({
+                        "player": name,
+                        "stat": "Hits",
+                        "current": hits,
+                        "hof_val": hof_hits,
+                        "through": f"Through {seasons_played} seasons",
+                        "bracket": bracket,
+                        "diff": abs(diff),
+                        "ahead": diff >= 0,
+                    })
+        elif group == "pitching":
+            ks = int(stats.get("strikeOuts", 0))
+            wins = int(stats.get("wins", 0))
+            for name, data in HOF_PACE_PITCHING.items():
+                bracket = None
+                for n in sorted(data.keys()):
+                    if seasons_played <= n:
+                        bracket = n
+                        break
+                if not bracket:
+                    bracket = max(data.keys())
+                if seasons_played > bracket + 2:
+                    continue
+                hof_k = data[bracket]["k"]
+                hof_w = data[bracket]["wins"]
+                if ks >= hof_k * 0.75:
+                    diff = ks - hof_k
+                    pace_comps.append({
+                        "player": name,
+                        "stat": "K",
+                        "current": ks,
+                        "hof_val": hof_k,
+                        "through": f"Through {seasons_played} seasons",
+                        "bracket": bracket,
+                        "diff": abs(diff),
+                        "ahead": diff >= 0,
+                    })
+                if wins >= hof_w * 0.75:
+                    diff = wins - hof_w
+                    pace_comps.append({
+                        "player": name,
+                        "stat": "W",
+                        "current": wins,
+                        "hof_val": hof_w,
+                        "through": f"Through {seasons_played} seasons",
+                        "bracket": bracket,
+                        "diff": abs(diff),
+                        "ahead": diff >= 0,
+                    })
+
+        # Sort: ahead first, then by closest comparison
+        pace_comps.sort(key=lambda x: (not x["ahead"], x["diff"]))
+        pace_comps = pace_comps[:6]  # Top 6 most relevant
+
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),
         "position": info.get("position", ""),
         "stats": stats,
         "anomalies": anomalies,
         "comparisons": comparisons,
+        "pace_comps": pace_comps,
+        "seasons_played": seasons_played,
     })
 
 

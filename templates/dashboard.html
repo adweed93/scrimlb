@@ -587,6 +587,16 @@ async function loadPlayerFilter(type) {
       });
       html += '</div>';
     }
+    // HOF pace comparisons
+    if (d.pace_comps && d.pace_comps.length) {
+      html += `<div class="section-header">HOF Pace Check — Through ${d.seasons_played} Seasons</div><div class="player-card">`;
+      d.pace_comps.forEach(p => {
+        const icon = p.ahead ? '🟢' : '🔵';
+        const dir = p.ahead ? `+${p.diff} ahead of` : `${p.diff} behind`;
+        html += `<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:13px">${icon} ${p.stat}: ${p.current} — ${dir} ${p.player}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${p.player} had ${p.hof_val} ${p.stat} through ${p.bracket} seasons</div></div>`;
+      });
+      html += '</div>';
+    }
     document.getElementById('stats-content').innerHTML = html;
   } else {
     // yearByYear - fetch and show dropdown

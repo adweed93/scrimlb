@@ -107,7 +107,26 @@ def search_team():
     if not q:
         return jsonify([])
     results = statsapi.lookup_team(q)
-    return jsonify([{"id": t["id"], "name": t["name"]} for t in results[:10]])
+    if results:
+        return jsonify([{"id": t["id"], "name": t["name"]} for t in results[:10]])
+    # Fuzzy fallback — match against all MLB teams
+    from difflib import get_close_matches
+    all_teams = statsapi.get("teams", {"sportIds": 1})["teams"]
+    names = {t["name"]: t for t in all_teams}
+    # Also index by abbreviation and short name
+    for t in all_teams:
+        names[t.get("abbreviation", "")] = t
+        names[t.get("shortName", "")] = t
+        names[t.get("teamName", "")] = t
+    matches = get_close_matches(q, names.keys(), n=5, cutoff=0.4)
+    seen = set()
+    out = []
+    for m in matches:
+        t = names[m]
+        if t["id"] not in seen:
+            seen.add(t["id"])
+            out.append({"id": t["id"], "name": t["name"]})
+    return jsonify(out)
 
 
 @app.route("/api/favorites/add", methods=["POST"])

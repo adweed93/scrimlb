@@ -328,6 +328,8 @@ async function removeFav(type, id) {
 let _teamRefreshTimer = null;
 async function loadTeam(id) {
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
+  if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
+  if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
   const r = await fetch(`/api/team/${id}`);
@@ -361,7 +363,7 @@ async function loadTeam(id) {
   }
   document.getElementById('stats-content').innerHTML = html;
   // Auto-refresh if live game
-  if (d.live) { _teamRefreshTimer = setInterval(() => loadTeam(id), 15000); }
+  if (d.live) { _teamRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) loadTeam(id); }, 15000); }
 }
 
 function loadTeamFull(id, name) { loadTeam(id); }
@@ -385,6 +387,9 @@ async function globalSearch(type) {
 
 async function loadPlayer(id) {
   _currentPlayerId = id;
+  if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
+  if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
+  if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
   const r = await fetch(`/api/player/${id}`);
@@ -515,6 +520,7 @@ async function loadPlayer(id) {
 
 async function loadPlayerFilter(type) {
   if (!_currentPlayerId) return;
+  if (type !== 'live' && _liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (type === 'season') return loadPlayer(_currentPlayerId);
   if (type === 'statcast') return loadStatcast(_currentPlayerId);
   if (type === 'live') return loadPlayerLive(_currentPlayerId);
@@ -622,7 +628,7 @@ async function loadPlayerLive(id) {
   if (_liveRefreshTimer) clearInterval(_liveRefreshTimer);
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading live data...</div></div>';
   await renderPlayerLive(id);
-  _liveRefreshTimer = setInterval(() => renderPlayerLive(id), 15000);
+  _liveRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) renderPlayerLive(id); }, 15000);
 }
 
 async function renderPlayerLive(id) {
@@ -810,10 +816,12 @@ async function loadFieldAndZone(gameId) {
 let _boxRefreshTimer = null;
 async function loadBoxScore(gameId) {
   if (_boxRefreshTimer) clearInterval(_boxRefreshTimer);
+  if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
+  if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
   await renderBoxScore(gameId);
-  _boxRefreshTimer = setInterval(() => renderBoxScore(gameId), 15000);
+  _boxRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) renderBoxScore(gameId); }, 15000);
 }
 
 async function renderBoxScore(gameId) {

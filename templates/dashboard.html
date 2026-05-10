@@ -661,7 +661,9 @@ function showYearDashboard() {
   const d = window._ybyData;
   const s = d.seasons.find(x => x.season === year);
   if (!s) return;
-  let html = `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(_currentPlayerId, 50)}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${year} Season</div></div></div>`;
+  const teamLogo = s.team_id ? `<img src="https://www.mlbstatic.com/team-logos/${s.team_id}.svg" style="width:36px;height:36px;border-radius:6px;background:var(--border);padding:2px" onerror="this.style.display='none'">` : '';
+  const teamName = s.team || '';
+  let html = `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(_currentPlayerId, 50)}${teamLogo}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${teamName} • ${year}</div></div></div>`;
   html += buildStatDashboard(s, d.position);
   html += '</div>';
   // Show anomaly flags for this season

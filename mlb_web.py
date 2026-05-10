@@ -1082,6 +1082,7 @@ def player_year_by_year(player_id):
             if s:
                 s["season"] = sg.get("season", "")
                 s["team"] = sg.get("team", "")
+                s["team_id"] = sg.get("team_id", "")
                 seasons.append(s)
     # Fallback if no preferred stats found
     if not seasons:
@@ -1093,6 +1094,7 @@ def player_year_by_year(player_id):
                 if s:
                     s["season"] = sg.get("season", "")
                     s["team"] = sg.get("team", "")
+                    s["team_id"] = sg.get("team_id", "")
                     seasons.append(s)
 
     # Deduplicate seasons (player traded mid-year gets multiple entries) and sort

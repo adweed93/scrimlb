@@ -1097,21 +1097,10 @@ def player_year_by_year(player_id):
                     s["team_id"] = sg.get("team_id", "")
                     seasons.append(s)
 
-    # Deduplicate seasons (player traded mid-year gets multiple entries) and sort
-    seen = {}
-    for s in seasons:
-        yr = s.get("season", "")
-        if yr not in seen:
-            seen[yr] = s
-        else:
-            # Keep the entry with more games played (or combine team names)
-            existing = seen[yr]
-            if int(s.get("gamesPlayed", 0)) > int(existing.get("gamesPlayed", 0)):
-                s["team"] = f"{existing.get('team', '')} / {s.get('team', '')}"
-                seen[yr] = s
-            else:
-                existing["team"] = f"{existing.get('team', '')} / {s.get('team', '')}"
-    seasons = sorted(seen.values(), key=lambda x: x.get("season", ""))
+    # Sort chronologically and assign unique keys for mid-season trades
+    seasons = sorted(seasons, key=lambda x: (x.get("season", ""), x.get("team", "")))
+    for i, s in enumerate(seasons):
+        s["_key"] = f"{s.get('season', '')}_{i}"
 
     # Flag standout seasons
     anomalies = []
@@ -1201,9 +1190,9 @@ def player_year_by_year(player_id):
             if losses >= 15 and wins < 10:
                 bad_flags.append({"msg": f"{wins}-{losses} record in {yr}", "level": "bad", "nugget": "A 15+ loss season with fewer than 10 wins is a rough year"})
         if flags:
-            anomalies.append({"season": yr, "flags": flags})
+            anomalies.append({"season": yr, "_key": s.get("_key", ""), "flags": flags})
         if bad_flags:
-            red_flag_seasons.append({"season": yr, "flags": bad_flags})
+            red_flag_seasons.append({"season": yr, "_key": s.get("_key", ""), "flags": bad_flags})
 
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),

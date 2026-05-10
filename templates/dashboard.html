@@ -642,9 +642,8 @@ async function loadPlayerFilter(type) {
     window._ybyData = d;
     let html = filterTabs('yearByYear');
     if (d.seasons && d.seasons.length) {
-      const years = d.seasons.map(s => s.season).filter(Boolean);
       html += `<div style="padding:12px"><select id="year-select" onchange="showYearDashboard()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-weight:600">`;
-      html += years.slice().reverse().map(y => `<option value="${y}">${y}</option>`).join('');
+      html += d.seasons.slice().reverse().map(s => `<option value="${s._key}">${s.season} — ${s.team||'Unknown'}</option>`).join('');
       html += `</select></div>`;
       html += '<div id="year-dashboard"></div>';
       document.getElementById('stats-content').innerHTML = html;
@@ -657,10 +656,11 @@ async function loadPlayerFilter(type) {
 }
 
 function showYearDashboard() {
-  const year = document.getElementById('year-select').value;
+  const key = document.getElementById('year-select').value;
   const d = window._ybyData;
-  const s = d.seasons.find(x => x.season === year);
+  const s = d.seasons.find(x => x._key === key);
   if (!s) return;
+  const year = s.season;
   const teamLogo = s.team_id ? `<img src="https://www.mlbstatic.com/team-logos/${s.team_id}.svg" style="width:36px;height:36px;border-radius:6px;background:var(--border);padding:2px" onerror="this.style.display='none'">` : '';
   const teamName = s.team || '';
   let html = `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(_currentPlayerId, 50)}${teamLogo}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${teamName} • ${year}</div></div></div>`;
@@ -668,7 +668,7 @@ function showYearDashboard() {
   html += '</div>';
   // Show anomaly flags for this season
   if (d.anomalies) {
-    const yearAnoms = d.anomalies.find(a => a.season === year);
+    const yearAnoms = d.anomalies.find(a => a._key === key);
     if (yearAnoms && yearAnoms.flags && yearAnoms.flags.length) {
       html += '<div class="section-header">🔥 Anomalies</div>';
       yearAnoms.flags.forEach(f => {
@@ -678,7 +678,7 @@ function showYearDashboard() {
   }
   // Show red flags for this season
   if (d.red_flags) {
-    const yearReds = d.red_flags.find(a => a.season === year);
+    const yearReds = d.red_flags.find(a => a._key === key);
     if (yearReds && yearReds.flags && yearReds.flags.length) {
       html += '<div class="section-header">🚩 Red Flags</div>';
       yearReds.flags.forEach(f => {

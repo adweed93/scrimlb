@@ -85,3 +85,52 @@
 - Add spray charts / heat maps from Statcast data
 - Add fantasy baseball projections
 - Add game-day notifications via push (would need a service worker)
+
+## Session: May 10, 2026 (Morning)
+
+### Bug Fix: Live Tab Hijacking Player Dashboard
+- **Problem**: When viewing a player's stat dashboard (Season, Career, etc.), the page would auto-switch to the Live tab every 15 seconds
+- **Root Cause**: `_liveRefreshTimer` from the Live filter view was never cleared when switching to other filter tabs. It kept firing `renderPlayerLive()` which overwrote the stats panel content.
+- **Fix** (in `templates/dashboard.html`):
+  - `loadPlayerFilter()` now clears `_liveRefreshTimer` when switching to any non-live filter
+  - `loadPlayer()` clears all three timers (`_liveRefreshTimer`, `_teamRefreshTimer`, `_boxRefreshTimer`) on entry
+  - `loadTeam()` and `loadBoxScore()` also clear all other timers
+  - All refresh interval callbacks now guard with `if (document.querySelector('#stats.active'))` so they only update when the stats panel is visible
+- **Commit**: `302bdce`
+
+### Performance: Faster Player Dashboard Loading
+- **Problem**: Player dashboard was slow due to 3-4 sequential MLB Stats API calls
+- **Fix** (in `mlb_web.py`):
+  - Added `ThreadPoolExecutor` to run game log fetch and team schedule fetch in parallel
+  - Added in-memory TTL cache (`_cached()` helper):
+    - Player season stats: 60s TTL
+    - Player game log: 60s TTL
+    - Team schedule: 120s TTL
+    - Team lookup: 300s TTL
+  - Repeat visits within cache window are instant; first load is ~2x faster from parallelism
+- **Commit**: `53ec387`
+
+### Feature: Team Roster & Lineup
+- **Added** `/api/team/<id>/roster` endpoint in `mlb_web.py`
+  - Returns full active roster grouped by position type (Pitcher, Catcher, Infielder, Outfielder)
+  - Returns batting lineup from current or most recent game
+  - Uses `statsapi.get("team_roster")` for structured roster data
+  - Uses game boxscore `battingOrder` for lineup
+- **Added** `loadTeamRoster()` in `dashboard.html`
+  - Loads async after main team data (doesn't block initial render)
+  - Shows numbered batting order (1-9) with player photos
+  - Shows full roster grouped by position with jersey numbers
+  - All players are clickable → loads their full stat dashboard
+- **Commit**: `76f0c38`
+
+### Restyle: "Neon Dugout" Theme
+- True black background (`#000`) with dark charcoal cards (`#111`)
+- Electric green (`#00ff87`) primary accent — stat numbers, active nav, buttons
+- Hot pink (`#ff006e`) for alerts/live indicators
+- Bright gold (`#ffbe0b`) for all-time records
+- Monospace font (`SF Mono`/`Fira Code`) for all stat values and timestamps
+- Sharp corners (6px border-radius) instead of rounded cards
+- Uppercase labels with tight letter-spacing throughout
+- Neon glow effects: text-shadow on active nav, box-shadow on W/L badges, progress bar glow
+- Search input gets green glow on focus
+- **Commit**: `ae54d5d`

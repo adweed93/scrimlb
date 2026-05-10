@@ -515,6 +515,78 @@ def player_live(player_id):
     return jsonify(result)
 
 
+@app.route("/api/game/<int:game_id>/boxscore")
+def game_boxscore(game_id):
+    """Full in-app box score: linescore + batting/pitching lines."""
+    try:
+        box = statsapi.boxscore_data(game_id)
+        away_team = box.get("teamInfo", {}).get("away", {}).get("teamName", "Away")
+        home_team = box.get("teamInfo", {}).get("home", {}).get("teamName", "Home")
+        away_id = box.get("teamInfo", {}).get("away", {}).get("id", 0)
+        home_id = box.get("teamInfo", {}).get("home", {}).get("id", 0)
+
+        # Batting lines
+        def parse_batters(side):
+            batters = []
+            for pid in box.get(f"{side}Batters", []):
+                if pid == "totals":
+                    continue
+                b = box.get(f"{side}Batters", {}).get(str(pid))
+                if not b:
+                    continue
+                batters.append({
+                    "id": pid,
+                    "name": b.get("name", ""),
+                    "pos": b.get("position", ""),
+                    "ab": b.get("ab", ""),
+                    "r": b.get("r", ""),
+                    "h": b.get("h", ""),
+                    "rbi": b.get("rbi", ""),
+                    "bb": b.get("bb", ""),
+                    "k": b.get("k", ""),
+                    "avg": b.get("avg", ""),
+                })
+            return batters
+
+        # Pitching lines
+        def parse_pitchers(side):
+            pitchers = []
+            for pid in box.get(f"{side}Pitchers", []):
+                if pid == "totals":
+                    continue
+                p = box.get(f"{side}Pitchers", {}).get(str(pid))
+                if not p:
+                    continue
+                pitchers.append({
+                    "id": pid,
+                    "name": p.get("name", ""),
+                    "ip": p.get("ip", ""),
+                    "h": p.get("h", ""),
+                    "r": p.get("r", ""),
+                    "er": p.get("er", ""),
+                    "bb": p.get("bb", ""),
+                    "k": p.get("k", ""),
+                    "era": p.get("era", ""),
+                })
+            return pitchers
+
+        # Linescore
+        linescore = statsapi.linescore(game_id)
+
+        return jsonify({
+            "available": True,
+            "away_team": away_team, "home_team": home_team,
+            "away_id": away_id, "home_id": home_id,
+            "away_batters": parse_batters("away"),
+            "home_batters": parse_batters("home"),
+            "away_pitchers": parse_pitchers("away"),
+            "home_pitchers": parse_pitchers("home"),
+            "linescore": linescore,
+        })
+    except Exception as e:
+        return jsonify({"available": False, "error": str(e)})
+
+
 @app.route("/api/game/<int:game_id>/live")
 def game_live_feed(game_id):
     """Get live game feed with runners, count, and last pitch location."""

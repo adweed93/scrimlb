@@ -316,8 +316,8 @@ async function loadTeam(id) {
     if (d.live.game_id) {
       html += `<div id="live-field-zone" class="player-card" style="padding:16px"><div class="loading">Loading field...</div></div>`;
       setTimeout(() => loadFieldAndZone(d.live.game_id), 100);
-      html += `<div class="player-card"><a href="https://www.mlb.com/gameday/${d.live.game_id}" target="_blank" style="display:block;padding:14px 16px;color:var(--blue);text-decoration:none;font-weight:600">📊 Live Box Score on MLB.com →</a>`;
-      html += `<a href="https://www.espn.com/mlb/boxscore/_/gameId/${d.live.game_id}" target="_blank" style="display:block;padding:14px 16px;border-top:1px solid var(--border);color:var(--blue);text-decoration:none;font-weight:600">📋 Live Box Score on ESPN →</a></div>`;
+      html += `<div class="player-card"><a onclick="loadBoxScore(${d.live.game_id})" style="display:block;padding:14px 16px;color:var(--blue);text-decoration:none;font-weight:600;cursor:pointer">📊 View Live Box Score →</a>`;
+      html += `<a href="https://www.mlb.com/gameday/${d.live.game_id}" target="_blank" style="display:block;padding:14px 16px;border-top:1px solid var(--border);color:var(--muted);text-decoration:none;font-size:12px">Open on MLB.com ↗</a></div>`;
     }
   }
   if (d.record.w !== undefined) {
@@ -330,7 +330,7 @@ async function loadTeam(id) {
   if (d.recent.length) {
     html += '<div class="section-header">Recent Games</div><div class="player-card">';
     d.recent.forEach(g => {
-      const links = g.game_id ? ` <a href="https://www.mlb.com/gameday/${g.game_id}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">box→</a>` : '';
+      const links = g.game_id ? ` <a onclick="loadBoxScore(${g.game_id})" style="color:var(--blue);text-decoration:none;font-size:11px;cursor:pointer">box→</a>` : '';
       html += `<div class="game-log-item"><div class="result ${g.won?'W':'L'}">${g.won?'W':'L'}</div><div class="info"><div class="opp">${g.home?'vs':'@'} ${g.opponent}</div><div class="date">${g.date}</div></div><div class="score">${g.score}${links}</div></div>`;
     });
     html += '</div>';
@@ -631,9 +631,9 @@ async function renderPlayerLive(id) {
 
     // Box score link
     if (g.game_id) {
-      html += `<div class="section-header">Full Box Score</div>`;
-      html += `<div class="player-card"><a href="https://www.mlb.com/gameday/${g.game_id}" target="_blank" style="display:block;padding:14px 16px;color:var(--blue);text-decoration:none;font-weight:600">📊 View Full Box Score on MLB.com →</a>`;
-      html += `<a href="https://www.espn.com/mlb/boxscore/_/gameId/${g.game_id}" target="_blank" style="display:block;padding:14px 16px;border-top:1px solid var(--border);color:var(--blue);text-decoration:none;font-weight:600">📋 View on ESPN →</a></div>`;
+      html += `<div class="section-header">Box Score</div>`;
+      html += `<div class="player-card"><a onclick="loadBoxScore(${g.game_id})" style="display:block;padding:14px 16px;color:var(--blue);text-decoration:none;font-weight:600;cursor:pointer">📊 View Full Box Score →</a>`;
+      html += `<a href="https://www.mlb.com/gameday/${g.game_id}" target="_blank" style="display:block;padding:14px 16px;border-top:1px solid var(--border);color:var(--muted);text-decoration:none;font-size:12px">Open on MLB.com ↗</a></div>`;
     }
   }
   document.getElementById('stats-content').innerHTML = html;
@@ -780,6 +780,68 @@ async function loadFieldAndZone(gameId) {
     }
     el.innerHTML = html;
   } catch(e) { el.innerHTML = ''; }
+}
+
+// In-App Box Score
+let _boxRefreshTimer = null;
+async function loadBoxScore(gameId) {
+  if (_boxRefreshTimer) clearInterval(_boxRefreshTimer);
+  switchTab('stats');
+  document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
+  await renderBoxScore(gameId);
+  _boxRefreshTimer = setInterval(() => renderBoxScore(gameId), 15000);
+}
+
+async function renderBoxScore(gameId) {
+  const r = await fetch(`/api/game/${gameId}/boxscore`);
+  const d = await r.json();
+  if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
+
+  let html = `<div style="padding:12px 16px;font-size:11px;color:var(--muted)">Auto-refreshes every 15s</div>`;
+
+  // Linescore
+  html += `<div class="player-card" style="overflow-x:auto"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
+
+  // Away Batting
+  html += `<div class="section-header">${teamLogo(d.away_id)} ${d.away_team} — Batting</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Batter</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th></tr>`;
+  d.away_batters.forEach(b => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500">${playerImg(b.id,20)} ${b.name} <span style="color:var(--muted);font-size:10px">${b.pos}</span></td><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td><td style="color:var(--muted)">${b.avg}</td></tr>`;
+  });
+  html += `</table></div>`;
+
+  // Home Batting
+  html += `<div class="section-header">${teamLogo(d.home_id)} ${d.home_team} — Batting</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Batter</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th></tr>`;
+  d.home_batters.forEach(b => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500">${playerImg(b.id,20)} ${b.name} <span style="color:var(--muted);font-size:10px">${b.pos}</span></td><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td><td style="color:var(--muted)">${b.avg}</td></tr>`;
+  });
+  html += `</table></div>`;
+
+  // Away Pitching
+  html += `<div class="section-header">${teamLogo(d.away_id)} ${d.away_team} — Pitching</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>ERA</th></tr>`;
+  d.away_pitchers.forEach(p => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500">${playerImg(p.id,20)} ${p.name}</td><td>${p.ip}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td style="color:var(--muted)">${p.era}</td></tr>`;
+  });
+  html += `</table></div>`;
+
+  // Home Pitching
+  html += `<div class="section-header">${teamLogo(d.home_id)} ${d.home_team} — Pitching</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>ERA</th></tr>`;
+  d.home_pitchers.forEach(p => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500">${playerImg(p.id,20)} ${p.name}</td><td>${p.ip}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td style="color:var(--muted)">${p.era}</td></tr>`;
+  });
+  html += `</table></div>`;
+
+  // External links
+  html += `<div class="player-card" style="margin-top:8px"><a href="https://www.mlb.com/gameday/${gameId}" target="_blank" style="display:block;padding:12px 16px;color:var(--blue);text-decoration:none;font-weight:600;font-size:13px">View on MLB.com →</a></div>`;
+
+  document.getElementById('stats-content').innerHTML = html;
 }
 
 // Notifications

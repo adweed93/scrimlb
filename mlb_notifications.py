@@ -13,11 +13,15 @@ CHECK_INTERVAL_MS = 60000  # Check every 60 seconds
 
 # Thresholds loaded dynamically from real historical data (pybaseball)
 _thresholds = None
+_thresholds_loaded_at = None
 
 def _get_thresh():
-    global _thresholds
-    if _thresholds is None:
+    global _thresholds, _thresholds_loaded_at
+    now = datetime.now()
+    # Reload if never loaded or if it's a new day
+    if _thresholds is None or _thresholds_loaded_at is None or _thresholds_loaded_at.date() < now.date():
         _thresholds = get_thresholds()
+        _thresholds_loaded_at = now
     return _thresholds
 
 

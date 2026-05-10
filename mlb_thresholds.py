@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 THRESHOLDS_CACHE = Path(__file__).parent / "mlb_thresholds_cache.json"
-CACHE_MAX_AGE_DAYS = 7
+CACHE_MAX_AGE_DAYS = 1  # Refresh daily to stay current with live season data
 
 
 def _cache_valid():
@@ -60,8 +60,10 @@ def _try_statsapi():
     try:
         # Fetch all-time single season records via stats API
         # Use league leaders to find top performances
-        hr_leaders = statsapi.league_leaders("homeRuns", season=2024, limit=50)
-        so_leaders = statsapi.league_leaders("strikeouts", season=2024, limit=50, playerPool="All", statGroup="pitching")
+        # Use current season leaders for up-to-date thresholds
+        current_year = datetime.now().year
+        hr_leaders = statsapi.league_leaders("homeRuns", season=current_year, limit=50)
+        so_leaders = statsapi.league_leaders("strikeouts", season=current_year, limit=50, playerPool="All", statGroup="pitching")
 
         # Parse HR leaders to get distribution
         # league_leaders returns formatted string, parse the numbers

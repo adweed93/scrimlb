@@ -243,9 +243,22 @@ def player_stats(player_id):
 
         if hits_pace >= 220:
             comparisons.append({"stat": "Hits Pace", "current": str(int(hits_pace)), "record": "262", "holder": RECORDS["hits"]["holder"], "pct": round(hits_pace / 262 * 100)})
+            if hits_pace >= 240:
+                anomalies.append({"msg": f"On pace for {int(hits_pace)} hits — approaching Ichiro territory", "level": "alltime"})
 
         if sb_pace >= 50:
             comparisons.append({"stat": "SB Pace", "current": str(int(sb_pace)), "record": "130", "holder": RECORDS["sb"]["holder"], "pct": round(sb_pace / 130 * 100)})
+            if sb_pace >= 80:
+                anomalies.append({"msg": f"On pace for {int(sb_pace)} SB — historic speed", "level": "alltime"})
+            elif sb_pace >= 50:
+                anomalies.append({"msg": f"On pace for {int(sb_pace)} SB", "level": "alert"})
+
+        # OPS anomaly
+        ops = float(stats.get("ops", "0") or "0")
+        if ops >= 1.100:
+            anomalies.append({"msg": f"{ops:.3f} OPS — ALL-TIME TERRITORY", "level": "alltime"})
+        elif ops >= 1.000:
+            anomalies.append({"msg": f"{ops:.3f} OPS — elite", "level": "alert"})
 
     elif games > 5 and group == "pitching":
         pitch_season = t.get("pitching_season", {})
@@ -266,6 +279,29 @@ def player_stats(player_id):
 
         if k_pace >= 250:
             comparisons.append({"stat": "K Pace", "current": str(int(k_pace)), "record": "383", "holder": RECORDS["k_season"]["holder"], "pct": round(k_pace / 383 * 100)})
+            if k_pace >= 300:
+                anomalies.append({"msg": f"On pace for {int(k_pace)} K — historic strikeout rate", "level": "alltime"})
+            else:
+                anomalies.append({"msg": f"On pace for {int(k_pace)} K", "level": "alert"})
+
+        # WHIP check
+        whip = float(stats.get("whip", "99") or "99")
+        if whip <= 0.85 and games > 8:
+            anomalies.append({"msg": f"{whip:.2f} WHIP — ALL-TIME TERRITORY", "level": "alltime"})
+        elif whip <= 1.00 and games > 8:
+            anomalies.append({"msg": f"{whip:.2f} WHIP — elite", "level": "alert"})
+
+        # K/9 check
+        k9 = float(stats.get("strikeoutsPer9Inn", "0") or "0")
+        if k9 >= 13.0:
+            anomalies.append({"msg": f"{k9:.1f} K/9 — historic dominance", "level": "alltime"})
+        elif k9 >= 11.0:
+            anomalies.append({"msg": f"{k9:.1f} K/9 — elite", "level": "alert"})
+
+        # Win pace
+        if w_pace >= 22 and games > 10:
+            anomalies.append({"msg": f"On pace for {int(w_pace)} wins", "level": "alert"})
+            comparisons.append({"stat": "Win Pace", "current": str(int(w_pace)), "record": "27", "holder": RECORDS["wins"]["holder"], "pct": round(w_pace / 27 * 100)})
 
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),

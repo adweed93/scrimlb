@@ -60,14 +60,45 @@ def search_player():
     q = request.args.get("q", "")
     if not q:
         return jsonify([])
+    # Try exact lookup first
     results = statsapi.lookup_player(q)
-    # Resolve team names from IDs
-    teams_data = {t["id"]: t["name"] for t in statsapi.get("teams", {"sportIds": 1})["teams"]}
-    return jsonify([{
-        "id": p["id"],
-        "name": p["fullName"],
-        "team": teams_data.get(p.get("currentTeam", {}).get("id"), "Free Agent")
-    } for p in results[:10]])
+    if results:
+        teams_data = {t["id"]: t["name"] for t in statsapi.get("teams", {"sportIds": 1})["teams"]}
+        return jsonify([{
+            "id": p["id"],
+            "name": p["fullName"],
+            "team": teams_data.get(p.get("currentTeam", {}).get("id"), "Free Agent")
+        } for p in results[:10]])
+    # Fuzzy fallback using pybaseball
+    from pybaseball import playerid_lookup
+    parts = q.strip().split(maxsplit=1)
+    last = parts[-1]
+    first = parts[0] if len(parts) > 1 else None
+    try:
+        df = playerid_lookup(last, first, fuzzy=True)
+        if df.empty:
+            return jsonify([])
+        matches = []
+        for _, row in df.head(10).iterrows():
+            mlbam = int(row["key_mlbam"]) if row.get("key_mlbam") else None
+            if not mlbam:
+                continue
+            name = f"{row['name_first'].title()} {row['name_last'].title()}"
+            # Try to get current team from statsapi
+            team = "Free Agent"
+            try:
+                info = statsapi.lookup_player(str(mlbam))
+                if info:
+                    tid = info[0].get("currentTeam", {}).get("id")
+                    if tid:
+                        team = statsapi.get("teams", {"sportIds": 1})["teams"]
+                        team = next((t["name"] for t in team if t["id"] == tid), "Free Agent")
+            except Exception:
+                pass
+            matches.append({"id": mlbam, "name": name, "team": team})
+        return jsonify(matches)
+    except Exception:
+        return jsonify([])
 
 
 @app.route("/api/search/team")

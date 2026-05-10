@@ -301,7 +301,9 @@ async function removeFav(type, id) {
 }
 
 // Stats
+let _teamRefreshTimer = null;
 async function loadTeam(id) {
+  if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
   const r = await fetch(`/api/team/${id}`);
@@ -334,6 +336,8 @@ async function loadTeam(id) {
     html += '</div>';
   }
   document.getElementById('stats-content').innerHTML = html;
+  // Auto-refresh if live game
+  if (d.live) { _teamRefreshTimer = setInterval(() => loadTeam(id), 15000); }
 }
 
 function loadTeamFull(id, name) { loadTeam(id); }
@@ -786,7 +790,7 @@ async function checkNotifs() { await fetch('/api/notifications'); loadNotifs(); 
 async function clearNotifs() { await fetch('/api/notifications/clear',{method:'POST'}); loadNotifs(); }
 
 // Auto-refresh
-setInterval(() => { if (document.querySelector('#scores.active')) loadScores(); }, 30000);
+setInterval(() => { if (document.querySelector('#scores.active')) loadScores(); }, 15000);
 loadScores();
 </script>
 </body>

@@ -358,10 +358,12 @@ def player_year_by_year(player_id):
         if sg["group"] in ("hitting", "pitching"):
             s = sg.get("stats", {})
             if s:
+                s["season"] = sg.get("season", "")
                 seasons.append(s)
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),
         "position": info.get("position", ""),
+        "team": info.get("current_team", ""),
         "seasons": seasons,
     })
 

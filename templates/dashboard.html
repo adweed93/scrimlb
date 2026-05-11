@@ -239,19 +239,18 @@ async function loadScores() {
   document.getElementById('scores-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
   const r = await fetch('/api/live');
   const d = await r.json();
-  let html = '';
-
-  const upcomingBlock = '<div class="section-header">Coming Up Next</div><div id="upcoming-preview"><div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div></div>' +
-    '<div id="upcoming-expand" style="text-align:center;padding:8px"><button class="pill-btn outline" onclick="document.getElementById(\'upcoming-full\').style.display=document.getElementById(\'upcoming-full\').style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent.includes(\'▼\')?\'▲ Hide Full Schedule\':\'▼ See All (2 Weeks)\'">▼ See All (2 Weeks)</button></div>' +
-    '<div id="upcoming-full" style="display:none"><div class="empty-state"><div class="icon">⏳</div></div></div>';
-
-  // If no live games, show Coming Up Next at top
-  if (!d.live.length) html += upcomingBlock;
+  let html = _scoresNav('today');
 
   if (d.live.length) {
     html += '<div class="section-header">Live</div>';
     d.live.forEach(g => { html += gameCard(g, 'live'); });
   }
+
+  // If no live games, show next 3 upcoming at top
+  if (!d.live.length) {
+    html += '<div class="section-header">Coming Up Next</div><div id="upcoming-preview"><div class="empty-state"><div class="icon">⏳</div></div></div>';
+  }
+
   if (d.upcoming.length) {
     html += '<div class="section-header">Upcoming Today</div>';
     d.upcoming.forEach(g => { html += gameCard(g, 'upcoming'); });
@@ -262,34 +261,23 @@ async function loadScores() {
   }
   if (!d.live.length && !d.upcoming.length && !d.final.length) html += '<div class="empty-state"><div class="icon">📅</div><div class="title">No Games Today</div></div>';
 
-  // If live games exist, show Coming Up Next after today's games
-  if (d.live.length) html += upcomingBlock;
+  // If live games, show coming up next after
+  if (d.live.length) {
+    html += '<div class="section-header">Coming Up Next</div><div id="upcoming-preview"></div>';
+  }
 
-  html += '<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadHistoricalGames()">📅 Past 2 Weeks</button></div>';
   document.getElementById('scores-content').innerHTML = html;
 
-  // Fetch upcoming async - sort soonest first
-  fetch('/api/upcoming').then(r=>r.json()).then(games => {
-    const preview = games.slice(0, 3).reverse();
-    let ph = '';
-    if (preview.length) {
-      preview.forEach(g => { ph += upcomingCard(g); });
-    } else {
-      ph = '<div class="empty-state"><div>No upcoming games scheduled</div></div>';
-    }
-    document.getElementById('upcoming-preview').innerHTML = ph;
-    // Full 2-week schedule
-    if (games.length > 3) {
-      let fh = '';
-      let currentDate = '';
-      games.forEach(g => {
-        const d = g.game_date;
-        if (d !== currentDate) { fh += `<div class="section-header" style="font-size:11px">${new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>`; currentDate = d; }
-        fh += upcomingCard(g);
-      });
-      document.getElementById('upcoming-full').innerHTML = fh;
-    }
-  });
+  // Fetch next 3 upcoming async
+  if (document.getElementById('upcoming-preview')) {
+    fetch('/api/upcoming').then(r=>r.json()).then(games => {
+      if (window._viewingHistory) return;
+      const preview = games.slice(0, 3).reverse();
+      let ph = preview.length ? preview.map(g => upcomingCard(g)).join('') : '<div class="empty-state"><div>No upcoming games</div></div>';
+      const el = document.getElementById('upcoming-preview');
+      if (el) el.innerHTML = ph;
+    });
+  }
 }
 
 async function loadHistoricalGames() {
@@ -297,7 +285,8 @@ async function loadHistoricalGames() {
   document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading past games...</div></div>';
   const r = await fetch('/api/games/history');
   const games = await r.json();
-  let html = '<div class="section-header">Past 2 Weeks — Tap for Box Score</div>';
+  let html = _scoresNav('past');
+  html += '<div class="section-header">Past 2 Weeks — Tap for Box Score</div>';
   let currentDate = '';
   games.forEach(g => {
     if (g.date !== currentDate) {
@@ -312,8 +301,32 @@ async function loadHistoricalGames() {
     </div>`;
   });
   if (!games.length) html += '<div class="empty-state"><div>No games found</div></div>';
-  html += '<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadScores()">← Back to Today</button></div>';
   document.getElementById('scores-content').innerHTML = html;
+}
+
+async function loadUpcomingFull() {
+  window._viewingHistory = true;
+  document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading upcoming...</div></div>';
+  const r = await fetch('/api/upcoming');
+  const games = await r.json();
+  let html = _scoresNav('future');
+  html += '<div class="section-header">Next 2 Weeks</div>';
+  let currentDate = '';
+  games.forEach(g => {
+    const d = g.game_date;
+    if (d !== currentDate) { html += `<div class="section-header" style="padding-top:12px;font-size:11px">${new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>`; currentDate = d; }
+    html += upcomingCard(g);
+  });
+  if (!games.length) html += '<div class="empty-state"><div>No upcoming games</div></div>';
+  document.getElementById('scores-content').innerHTML = html;
+}
+
+function _scoresNav(active) {
+  return `<div class="filter-tabs" style="padding:8px 16px">
+    <button class="pill-btn ${active==='past'?'primary':'outline'}" onclick="loadHistoricalGames()">Past</button>
+    <button class="pill-btn ${active==='today'?'primary':'outline'}" onclick="loadScores()">Today</button>
+    <button class="pill-btn ${active==='future'?'primary':'outline'}" onclick="loadUpcomingFull()">Upcoming</button>
+  </div>`;
 }
 
 function gameCard(g, status) {
@@ -354,26 +367,6 @@ function upcomingCard(g) {
     <div class="team-row">${teamLogo(g.away_id)}<span class="team-name">${g.away}</span></div>
     <div class="team-row">${teamLogo(g.home_id)}<span class="team-name">${g.home}</span></div>
   </div>`;
-}
-
-async function loadAllUpcoming() {
-  document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading upcoming games...</div></div>';
-  const r = await fetch('/api/upcoming');
-  const games = await r.json();
-  let html = '<div class="section-header">Upcoming Games — Next 2 Weeks</div>';
-  let currentDate = '';
-  games.forEach(g => {
-    const dt = g.game_time ? new Date(g.game_time) : null;
-    const dateStr = dt ? dt.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'}) : g.game_date || '';
-    if (dateStr !== currentDate) {
-      currentDate = dateStr;
-      html += `<div class="section-header" style="padding-top:12px">${dateStr}</div>`;
-    }
-    html += upcomingCard(g);
-  });
-  if (!games.length) html += '<div class="empty-state"><div>No upcoming games scheduled</div></div>';
-  html += '<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadScores()">← Back to Today</button></div>';
-  document.getElementById('scores-content').innerHTML = html;
 }
 
 // Favorites

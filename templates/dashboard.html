@@ -648,6 +648,7 @@ async function loadPlayerFilter(type) {
   if (type === 'season') return loadPlayer(_currentPlayerId);
   if (type === 'statcast') return loadStatcast(_currentPlayerId);
   if (type === 'live') return loadPlayerLive(_currentPlayerId);
+  if (type === 'defense') return loadDefense(_currentPlayerId);
 
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
 
@@ -931,6 +932,40 @@ async function loadStatcast(id) {
   document.getElementById('stats-content').innerHTML = html;
 }
 
+async function loadDefense(playerId) {
+  document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
+  const r = await fetch(`/api/player/${playerId}/fielding`);
+  const d = await r.json();
+  let html = filterTabs('defense');
+
+  function fieldingSection(title, positions) {
+    if (!positions.length) return `<div class="empty-state"><div>No fielding data available</div></div>`;
+    let s = `<div class="section-header">${title}</div>`;
+    positions.forEach(p => {
+      s += `<div class="player-card" style="margin-bottom:8px"><div class="player-header"><div class="name">${p.position}</div><div class="meta">${p.games} G • ${p.innings} IP</div></div>`;
+      s += `<div class="stat-section-label">Core</div><div class="stat-row">`;
+      s += `<div class="stat-cell${parseFloat(p.fielding_pct)>=.980?' highlight':''}"><div class="val">${p.fielding_pct}</div><div class="lbl">FLD%</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.games}</div><div class="lbl">G</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.gs}</div><div class="lbl">GS</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.chances}</div><div class="lbl">TC</div></div>`;
+      s += `<div class="stat-cell${p.errors===0?' highlight':''}"><div class="val">${p.errors}</div><div class="lbl">E</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.throwing_errors}</div><div class="lbl">TE</div></div>`;
+      s += `</div><div class="stat-section-label">Range & Plays</div><div class="stat-row">`;
+      s += `<div class="stat-cell"><div class="val">${p.putouts}</div><div class="lbl">PO</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.assists}</div><div class="lbl">A</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.dp}</div><div class="lbl">DP</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.rf_game}</div><div class="lbl">RF/G</div></div>`;
+      s += `<div class="stat-cell"><div class="val">${p.rf_9}</div><div class="lbl">RF/9</div></div>`;
+      s += `</div></div>`;
+    });
+    return s;
+  }
+
+  html += fieldingSection('🧤 2026 Season', d.season);
+  html += fieldingSection('📊 Career by Position', d.career);
+  document.getElementById('stats-content').innerHTML = html;
+}
+
 function filterTabs(active) {
   const tabs = [
     {id:'season', label:'2026'},
@@ -938,6 +973,7 @@ function filterTabs(active) {
     {id:'career', label:'Career'},
     {id:'yearByYear', label:'Year by Year'},
     {id:'statcast', label:'⚡ Statcast'},
+    {id:'defense', label:'🧤 Defense'},
   ];
   return `<div class="filter-tabs">${tabs.map(t =>
     `<button onclick="loadPlayerFilter('${t.id}')" class="pill-btn ${active===t.id?'primary':'outline'}">${t.label}</button>`

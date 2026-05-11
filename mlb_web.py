@@ -1532,6 +1532,44 @@ def game_boxscore_demo():
     })
 
 
+@app.route("/api/player/<int:player_id>/fielding")
+def player_fielding(player_id):
+    """Get fielding stats (season + career) split by position."""
+    try:
+        season = statsapi.player_stat_data(player_id, group="fielding", type="season")
+        career = statsapi.player_stat_data(player_id, group="fielding", type="career")
+        def parse(entries):
+            out = []
+            for s in entries:
+                st = s.get("stats", {})
+                pos = st.get("position", {})
+                if pos.get("abbreviation") == "DH" or int(st.get("gamesPlayed", 0)) == 0:
+                    continue
+                out.append({
+                    "position": pos.get("name", ""),
+                    "pos_abbr": pos.get("abbreviation", ""),
+                    "games": st.get("gamesPlayed", 0),
+                    "gs": st.get("gamesStarted", 0),
+                    "innings": st.get("innings", "0"),
+                    "fielding_pct": st.get("fielding", ".000"),
+                    "putouts": st.get("putOuts", 0),
+                    "assists": st.get("assists", 0),
+                    "errors": st.get("errors", 0),
+                    "dp": st.get("doublePlays", 0),
+                    "chances": st.get("chances", 0),
+                    "rf_game": st.get("rangeFactorPerGame", "0"),
+                    "rf_9": st.get("rangeFactorPer9Inn", "0"),
+                    "throwing_errors": st.get("throwingErrors", 0),
+                })
+            return out
+        return jsonify({
+            "season": parse(season.get("stats", [])),
+            "career": parse(career.get("stats", [])),
+        })
+    except Exception as e:
+        return jsonify({"season": [], "career": [], "error": str(e)})
+
+
 @app.route("/api/player/<int:player_id>/statcast")
 def player_statcast(player_id):
     """Get Statcast advanced metrics via pybaseball."""

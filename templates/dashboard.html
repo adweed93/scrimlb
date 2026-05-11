@@ -53,11 +53,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-se
 .stat-cell .val { font-size: 20px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: #fff; }
 .stat-cell .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 .stat-cell.highlight .val { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
-body.color-stats .stat-cell .val[data-grade="elite"] { color: #00e676; }
-body.color-stats .stat-cell .val[data-grade="good"] { color: #69f0ae; }
-body.color-stats .stat-cell .val[data-grade="avg"] { color: #ffeb3b; }
-body.color-stats .stat-cell .val[data-grade="bad"] { color: #ff9800; }
-body.color-stats .stat-cell .val[data-grade="terrible"] { color: #f44336; }
+body .stat-cell .val[data-grade="elite"] { color: #00e676; }
+body .stat-cell .val[data-grade="good"] { color: #69f0ae; }
+body .stat-cell .val[data-grade="avg"] { color: #ffeb3b; }
+body .stat-cell .val[data-grade="bad"] { color: #ff9800; }
+body .stat-cell .val[data-grade="terrible"] { color: #f44336; }
 .toggle-switch { position:relative;width:32px;height:18px;display:inline-block }
 .toggle-switch input { opacity:0;width:0;height:0 }
 .toggle-switch .slider { position:absolute;inset:0;background:#333;border-radius:9px;transition:.2s;cursor:pointer }
@@ -568,7 +568,7 @@ async function loadPlayer(id) {
     if (m) _medals[r.stat] = m;
   });
   const medal = (stat) => _medals[stat] ? `<span style="font-size:10px">${_medals[stat]}</span>` : '';
-  html += `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(id, 50)}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${d.team}</div></div><label style="margin-left:auto;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer"><label class="toggle-switch"><input type="checkbox" onchange="document.body.classList.toggle('color-stats',this.checked);gradeStats()"><span class="slider"></span></label>Color</label></div>`;
+  html += `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(id, 50)}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${d.team}</div></div></div>`;
 
   if (d.position !== 'P') {
     html += `<div class="stat-section-label">Slash Line</div><div class="stat-row">
@@ -732,6 +732,7 @@ async function loadPlayer(id) {
   }
 
   document.getElementById('stats-content').innerHTML = html;
+  gradeStats();
 }
 
 // Store current player ID for filter switching

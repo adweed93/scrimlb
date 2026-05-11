@@ -1352,7 +1352,7 @@ async function loadBoxScore(gameId) {
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
   await renderBoxScore(gameId);
-  _boxRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) renderBoxScore(gameId); }, 6000);
+  _boxRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) refreshBoxScoreData(gameId); }, 6000);
 }
 
 function renderDiamond(runners, count) {
@@ -1423,6 +1423,51 @@ function renderStrikeZone(pitches, lastPitch) {
   </div>`;
 }
 
+let _boxAtBats = [];
+let _boxAbIndex = -1;
+let _boxGameId = null;
+
+function abEventColor(ev) {
+  const e = (ev||'').toLowerCase();
+  if (e.includes('home run')) return 'var(--gold)';
+  if (e.includes('double') || e.includes('triple')) return 'var(--green)';
+  if (e.includes('single') || e.includes('walk')) return 'var(--blue)';
+  if (e.includes('strikeout')) return 'var(--red)';
+  return 'var(--muted)';
+}
+
+function renderSelectedAtBat() {
+  const card = document.getElementById('ab-card-display');
+  const zone = document.getElementById('ab-strike-zone');
+  const counter = document.getElementById('ab-counter');
+  if (!card || !_boxAtBats.length) return;
+  const ab = _boxAtBats[_boxAbIndex];
+  const pitchDots = (ab.pitch_sequence||[]).map(p => {
+    const c = p.call==='C'||p.call==='S'||p.call==='T'?'var(--red)':p.call==='B'?'var(--green)':p.call==='F'?'var(--gold)':'var(--blue)';
+    return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c}"></span>`;
+  }).join('');
+  card.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:10px">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${ab.half==='top'?'▲':'▼'} ${ab.inning}</div>
+    <div style="font-size:13px;font-weight:600;cursor:pointer" onclick="loadPlayer(${ab.batter_id})">${ab.batter}</div>
+    <div style="font-size:10px;color:var(--muted);margin:2px 0">vs ${ab.pitcher}</div>
+    <div style="font-size:12px;font-weight:700;color:${abEventColor(ab.event)};margin:6px 0">${ab.event}${ab.rbi?' <span style="font-size:10px;color:var(--gold)">+'+ab.rbi+' RBI</span>':''}</div>
+    <div style="font-size:10px;color:var(--muted)">${ab.description}</div>
+    <div style="display:flex;gap:3px;margin-top:6px;align-items:center">${pitchDots}<span style="font-size:9px;color:var(--muted);margin-left:4px">${ab.pitches}P</span></div>
+  </div>`;
+  if (counter) counter.textContent = `${_boxAbIndex+1} / ${_boxAtBats.length}`;
+  // Sync strike zone to selected at-bat
+  if (zone) {
+    const pitches = ab.pitch_sequence || [];
+    zone.innerHTML = pitches.length ? renderStrikeZone(pitches, pitches[pitches.length-1]) : '<div style="font-size:11px;color:var(--muted)">No pitch data</div>';
+  }
+}
+
+function abNav(dir) {
+  if (!_boxAtBats.length) return;
+  _boxAbIndex = Math.max(0, Math.min(_boxAtBats.length - 1, _boxAbIndex + dir));
+  renderSelectedAtBat();
+}
+
 async function loadAtBatScroller(gameId) {
   const el = document.getElementById(`ab-scroller-${gameId}`);
   if (!el) return;
@@ -1430,107 +1475,109 @@ async function loadAtBatScroller(gameId) {
     const r = await fetch(`/api/game/${gameId}/plays`);
     const d = await r.json();
     if (!d.plays || !d.plays.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No play data available</div>'; return; }
-    const eventColor = (ev) => {
-      const e = (ev||'').toLowerCase();
-      if (e.includes('home run')) return 'var(--gold)';
-      if (e.includes('double') || e.includes('triple')) return 'var(--green)';
-      if (e.includes('single') || e.includes('walk')) return 'var(--blue)';
-      if (e.includes('strikeout')) return 'var(--red)';
-      return 'var(--muted)';
-    };
-    let cards = d.plays.map(ab => {
-      const pitchDots = (ab.pitch_sequence||[]).map(p => {
-        const c = p.call==='C'||p.call==='S'||p.call==='T'?'var(--red)':p.call==='B'?'var(--green)':p.call==='F'?'var(--gold)':'var(--blue)';
-        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c}"></span>`;
-      }).join('');
-      return `<div style="min-width:200px;max-width:200px;padding:12px;border:1px solid var(--border);border-radius:10px;flex-shrink:0">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${ab.half==='top'?'▲':'▼'} ${ab.inning}</div>
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="loadPlayer(${ab.batter_id})">${ab.batter}</div>
-        <div style="font-size:10px;color:var(--muted);margin:2px 0">vs ${ab.pitcher}</div>
-        <div style="font-size:12px;font-weight:700;color:${eventColor(ab.event)};margin:6px 0">${ab.event}${ab.rbi?' <span style="font-size:10px;color:var(--gold)">+'+ab.rbi+' RBI</span>':''}</div>
-        <div style="font-size:10px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${ab.description}</div>
-        <div style="display:flex;gap:3px;margin-top:6px;align-items:center">${pitchDots}<span style="font-size:9px;color:var(--muted);margin-left:4px">${ab.pitches}P</span></div>
-      </div>`;
-    }).join('');
-    el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0;scroll-snap-type:x mandatory">${cards}</div>`;
-    el.firstChild.scrollLeft = el.firstChild.scrollWidth;
+    _boxAtBats = d.plays;
+    _boxAbIndex = d.plays.length - 1; // default to most recent
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;justify-content:center">
+      <button onclick="abNav(-1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">◀</button>
+      <div id="ab-card-display" style="flex:1;max-width:300px"></div>
+      <button onclick="abNav(1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">▶</button>
+    </div>
+    <div id="ab-counter" style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px"></div>`;
+    renderSelectedAtBat();
   } catch(e) { el.innerHTML = ''; }
 }
+function buildBattingTable(batters, teamId, teamName) {
+  let html = `<div class="section-header">${teamLogo(teamId)} ${teamName} — Batting</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Batter</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th></tr>`;
+  batters.forEach(b => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${b.id})">${playerImg(b.id,20)} ${b.name} <span style="color:var(--muted);font-size:10px">${b.pos}</span></td><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td><td style="color:var(--muted)">${b.avg}</td></tr>`;
+  });
+  html += `</table></div>`;
+  return html;
+}
+
+function buildPitchingTable(pitchers, teamId, teamName) {
+  let html = `<div class="section-header">${teamLogo(teamId)} ${teamName} — Pitching</div>`;
+  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
+  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>ERA</th></tr>`;
+  pitchers.forEach(p => {
+    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${p.id})">${playerImg(p.id,20)} ${p.name}</td><td>${p.ip}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td style="color:var(--muted)">${p.era}</td></tr>`;
+  });
+  html += `</table></div>`;
+  return html;
+}
+
+async function refreshBoxScoreData(gameId) {
+  try {
+    const [br, lr] = await Promise.all([
+      fetch(`/api/game/${gameId}/boxscore`).then(r=>r.json()),
+      fetch(`/api/game/${gameId}/live`).then(r=>r.json()).catch(()=>({available:false}))
+    ]);
+    if (!br.available) return;
+    // Update linescore
+    const ls = document.getElementById('box-linescore');
+    if (ls) ls.innerHTML = `<pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${br.linescore}</pre>`;
+    // Update diamond
+    const dm = document.getElementById('box-diamond');
+    if (dm && lr.available) {
+      dm.innerHTML = `<div style="text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${lr.inning_half||''} ${lr.inning||''}</div>${renderDiamond(lr.runners, lr.count)}<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--text)">${lr.batter||''}</div><div style="font-size:11px;color:var(--muted)">vs ${lr.pitcher||''}</div></div>`;
+    }
+    // Update tables
+    const tb = document.getElementById('box-tables');
+    if (tb) tb.innerHTML = buildBattingTable(br.away_batters, br.away_id, br.away_team) + buildBattingTable(br.home_batters, br.home_id, br.home_team) + buildPitchingTable(br.away_pitchers, br.away_id, br.away_team) + buildPitchingTable(br.home_pitchers, br.home_id, br.home_team);
+    // Refresh at-bat data without resetting selection
+    const pr = await fetch(`/api/game/${gameId}/plays`).then(r=>r.json()).catch(()=>null);
+    if (pr && pr.plays && pr.plays.length) {
+      const wasAtEnd = _boxAbIndex === _boxAtBats.length - 1;
+      _boxAtBats = pr.plays;
+      if (wasAtEnd) _boxAbIndex = _boxAtBats.length - 1;
+      else _boxAbIndex = Math.min(_boxAbIndex, _boxAtBats.length - 1);
+      renderSelectedAtBat();
+    }
+  } catch(e) {}
+}
+
 async function renderBoxScore(gameId) {
+  _boxGameId = gameId;
   const r = await fetch(`/api/game/${gameId}/boxscore`);
   const d = await r.json();
   if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
 
-  let html = `<div style="padding:12px 16px;font-size:11px;color:var(--muted)">Auto-refreshes every 15s</div>`;
-
-  // Linescore
-  html += `<div class="player-card" style="overflow-x:auto"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
-
-  // Live diamond + strike zone (only for in-progress games)
-  try {
-    const lr = await fetch(`/api/game/${gameId}/live`);
-    const live = await lr.json();
-    if (live.available) {
-      html += `<div class="player-card" style="padding:16px;display:flex;align-items:flex-start;justify-content:center;gap:24px;flex-wrap:wrap">`;
-      html += `<div style="text-align:center">`;
-      html += `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${live.inning_half || ''} ${live.inning || ''}</div>`;
-      html += renderDiamond(live.runners, live.count);
-      html += `<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--text)">${live.batter || ''}</div>`;
-      html += `<div style="font-size:11px;color:var(--muted)">vs ${live.pitcher || ''}</div>`;
-      html += `</div>`;
-      html += `<div style="text-align:center">`;
-      html += `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Strike Zone</div>`;
-      html += renderStrikeZone(live.pitches, live.last_pitch);
-      html += `</div>`;
-      html += `</div>`;
-    }
-  } catch(e) {}
-
-  // At-Bat Play-by-Play Scroller
+  let html = `<div style="padding:12px 16px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
+  // Linescore container
+  html += `<div id="box-linescore" class="player-card" style="overflow-x:auto"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
+  // Diamond + Strike Zone container
+  html += `<div class="player-card" style="padding:16px;display:flex;align-items:flex-start;justify-content:center;gap:24px;flex-wrap:wrap">`;
+  html += `<div id="box-diamond"></div>`;
+  html += `<div style="text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Strike Zone</div><div id="ab-strike-zone"></div></div>`;
+  html += `</div>`;
+  // At-Bat nav
   html += `<div class="section-header">At-Bat Play-by-Play</div>`;
   html += `<div id="ab-scroller-${gameId}" class="player-card" style="padding:12px"><div class="empty-state" style="padding:16px"><div class="icon">⏳</div></div></div>`;
-  setTimeout(() => loadAtBatScroller(gameId), 100);
-
-  // Away Batting
-  html += `<div class="section-header">${teamLogo(d.away_id)} ${d.away_team} — Batting</div>`;
-  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
-  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Batter</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th></tr>`;
-  d.away_batters.forEach(b => {
-    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${b.id})">${playerImg(b.id,20)} ${b.name} <span style="color:var(--muted);font-size:10px">${b.pos}</span></td><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td><td style="color:var(--muted)">${b.avg}</td></tr>`;
-  });
-  html += `</table></div>`;
-
-  // Home Batting
-  html += `<div class="section-header">${teamLogo(d.home_id)} ${d.home_team} — Batting</div>`;
-  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
-  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Batter</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th></tr>`;
-  d.home_batters.forEach(b => {
-    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${b.id})">${playerImg(b.id,20)} ${b.name} <span style="color:var(--muted);font-size:10px">${b.pos}</span></td><td>${b.ab}</td><td>${b.r}</td><td>${b.h}</td><td>${b.rbi}</td><td>${b.bb}</td><td>${b.k}</td><td style="color:var(--muted)">${b.avg}</td></tr>`;
-  });
-  html += `</table></div>`;
-
-  // Away Pitching
-  html += `<div class="section-header">${teamLogo(d.away_id)} ${d.away_team} — Pitching</div>`;
-  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
-  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>ERA</th></tr>`;
-  d.away_pitchers.forEach(p => {
-    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${p.id})">${playerImg(p.id,20)} ${p.name}</td><td>${p.ip}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td style="color:var(--muted)">${p.era}</td></tr>`;
-  });
-  html += `</table></div>`;
-
-  // Home Pitching
-  html += `<div class="section-header">${teamLogo(d.home_id)} ${d.home_team} — Pitching</div>`;
-  html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
-  html += `<tr style="color:var(--muted);text-align:center;border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>ERA</th></tr>`;
-  d.home_pitchers.forEach(p => {
-    html += `<tr style="border-bottom:1px solid var(--border);text-align:center"><td style="text-align:left;padding:8px;font-weight:500;cursor:pointer" onclick="loadPlayer(${p.id})">${playerImg(p.id,20)} ${p.name}</td><td>${p.ip}</td><td>${p.h}</td><td>${p.r}</td><td>${p.er}</td><td>${p.bb}</td><td>${p.k}</td><td style="color:var(--muted)">${p.era}</td></tr>`;
-  });
-  html += `</table></div>`;
-
+  // Tables container
+  html += `<div id="box-tables">`;
+  html += buildBattingTable(d.away_batters, d.away_id, d.away_team);
+  html += buildBattingTable(d.home_batters, d.home_id, d.home_team);
+  html += buildPitchingTable(d.away_pitchers, d.away_id, d.away_team);
+  html += buildPitchingTable(d.home_pitchers, d.home_id, d.home_team);
+  html += `</div>`;
   // External links
   html += `<div class="player-card" style="margin-top:8px"><a href="https://www.mlb.com/gameday/${gameId}" target="_blank" style="display:block;padding:12px 16px;color:var(--blue);text-decoration:none;font-weight:600;font-size:13px">View on MLB.com →</a></div>`;
 
   document.getElementById('stats-content').innerHTML = html;
+
+  // Load diamond initially
+  try {
+    const lr = await fetch(`/api/game/${gameId}/live`);
+    const live = await lr.json();
+    if (live.available) {
+      document.getElementById('box-diamond').innerHTML = `<div style="text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${live.inning_half||''} ${live.inning||''}</div>${renderDiamond(live.runners, live.count)}<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--text)">${live.batter||''}</div><div style="font-size:11px;color:var(--muted)">vs ${live.pitcher||''}</div></div>`;
+    }
+  } catch(e) {}
+
+  // Load at-bats (this also renders strike zone for selected ab)
+  await loadAtBatScroller(gameId);
 }
 
 // Notifications

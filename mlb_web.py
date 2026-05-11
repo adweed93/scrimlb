@@ -1688,7 +1688,10 @@ def game_plays(game_id):
             for ev in events:
                 if ev.get("isPitch"):
                     pd = ev.get("pitchData", {})
+                    coords = pd.get("coordinates", {})
                     pitches.append({
+                        "x": coords.get("pX", 0),
+                        "y": coords.get("pZ", 0),
                         "speed": pd.get("startSpeed", 0),
                         "type": ev.get("details", {}).get("type", {}).get("code", ""),
                         "call": ev.get("details", {}).get("call", {}).get("code", ""),
@@ -1704,7 +1707,7 @@ def game_plays(game_id):
                 "description": result.get("description", ""),
                 "rbi": result.get("rbi", 0),
                 "pitches": len(pitches),
-                "pitch_sequence": pitches[-6:],
+                "pitch_sequence": pitches,
             })
         return jsonify({"plays": at_bats})
     except Exception as e:

@@ -1046,6 +1046,41 @@ async function loadDefense(playerId) {
 
   html += fieldingSection('🧤 2026 Season', d.season);
   html += fieldingSection('📊 Career by Position', d.career);
+
+  // Defensive insights & red flags
+  const allPos = [...d.season, ...d.career];
+  const season = d.season[0] || {};
+  const career = d.career.length ? d.career.reduce((a, b) => a.games > b.games ? a : b) : {};
+  let insights = [], flags = [];
+
+  if (season.games) {
+    const fld = parseFloat(season.fielding_pct) || 0;
+    const errRate = season.errors / Math.max(season.chances, 1);
+    if (fld >= .990) insights.push({msg: `${season.fielding_pct} FLD% at ${season.position} — elite glove`, nugget: 'Gold Glove territory. Only the best defenders sustain .990+ over a full season'});
+    else if (fld >= .980) insights.push({msg: `${season.fielding_pct} FLD% at ${season.position} — above average`, nugget: 'Solid defender. League average FLD% for infielders is ~.975, outfielders ~.990'});
+    if (season.errors === 0 && season.games >= 15) insights.push({msg: `0 errors in ${season.games} games (${season.chances} chances) — flawless`, nugget: 'Error-free over 15+ games is impressive. Ozzie Smith had 8 errorless streaks of 40+ games'});
+    if (parseFloat(season.rf_game) >= 4.0 && season.position === 'Shortstop') insights.push({msg: `${season.rf_game} RF/G at SS — elite range`, nugget: 'Range factor above 4.0 at SS indicates exceptional ground coverage'});
+    if (season.dp >= 10) insights.push({msg: `${season.dp} double plays in ${season.games} games`, nugget: `${(season.dp/season.games).toFixed(2)} DP/game. Strong pivot ability`});
+    if (fld <= .950 && season.games >= 10) flags.push({msg: `${season.fielding_pct} FLD% at ${season.position} — below average`, level: 'bad', nugget: 'Sub-.950 fielding percentage suggests defensive liability'});
+    if (season.errors >= 5 && season.games <= 20) flags.push({msg: `${season.errors} errors in ${season.games} games — error prone`, level: season.errors >= 8 ? 'terrible' : 'bad', nugget: `${(season.errors/season.games).toFixed(2)} errors/game. League average is about 0.03-0.05 for infielders`});
+  }
+  if (career.games && career.games >= 100) {
+    const cfld = parseFloat(career.fielding_pct) || 0;
+    if (cfld >= .985) insights.push({msg: `${career.fielding_pct} career FLD% at ${career.position} over ${career.games} games`, nugget: 'Sustained defensive excellence. Andrelton Simmons (.984 career) is the modern gold standard'});
+    if (career.dp >= 100) insights.push({msg: `${career.dp} career double plays`, nugget: 'Elite DP production over a career'});
+  }
+  // Multi-position versatility
+  if (d.career.length >= 3) insights.push({msg: `Played ${d.career.length} positions in career — super utility`, nugget: 'Defensive versatility is increasingly valued in modern baseball'});
+
+  if (insights.length) {
+    html += '<div class="section-header">📌 Insights</div>';
+    insights.slice(0, 4).forEach(i => { html += `<div class="anomaly alert" style="border-left-color:var(--muted)"><div>📌 ${i.msg}</div><div style="font-size:11px;margin-top:4px;font-weight:400;opacity:0.85;font-style:italic">💡 ${i.nugget}</div></div>`; });
+  }
+  if (flags.length) {
+    html += '<div class="section-header">🚩 Red Flags</div>';
+    flags.forEach(f => { html += `<div class="anomaly ${f.level}"><div>${f.level==='terrible'?'🚨 ':f.level==='bad'?'⚠️ ':'📉 '}${f.msg}</div><div style="font-size:11px;margin-top:4px;font-weight:400;opacity:0.85;font-style:italic">💡 ${f.nugget}</div></div>`; });
+  }
+
   document.getElementById('stats-content').innerHTML = html;
 }
 

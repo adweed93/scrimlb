@@ -340,7 +340,7 @@ function gameCard(g, status) {
   const homeWin = g.home_score > g.away_score;
   let statusText = '';
   if (status==='live') statusText = `<span class="live-dot">●</span> ${g.inning_state} ${g.inning}`;
-  else if (status==='final') statusText = 'Final';
+  else if (status==='final') statusText = g.innings && g.innings != 9 ? `Final/${g.innings}` : 'Final';
   else {
     const t = g.game_time ? new Date(g.game_time).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '';
     statusText = t || 'Scheduled';
@@ -1394,7 +1394,7 @@ function renderStrikeZone(pitches, lastPitch) {
     if (p.x === 0 && p.y === 0) return;
     const cx = mapX(p.x), cy = mapY(p.y);
     const isLast = i === pitches.length - 1;
-    const color = p.call === 'C' ? '#f44336' : p.call === 'B' ? '#4caf50' : p.call === 'S' ? '#f44336' : p.call === 'F' ? '#f44336' : p.call === 'X' ? '#2196f3' : '#888';
+    const color = p.call === 'B' || p.call === '*B' || p.call === 'H' ? '#4caf50' : p.call === 'X' || p.call === 'D' || p.call === 'E' ? '#2196f3' : (p.call === 'F' || p.call === 'T' || p.call === 'O') && p.strikes >= 2 ? '#ff9800' : '#f44336';
     const r = isLast ? 8 : 6;
     const opacity = isLast ? 1 : 0.6;
     dots += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" opacity="${opacity}" stroke="${isLast?'#fff':'none'}" stroke-width="${isLast?1.5:0}"/>`;
@@ -1409,18 +1409,34 @@ function renderStrikeZone(pitches, lastPitch) {
       <line x1="${zoneL}" y1="${zoneT+2*(zoneB-zoneT)/3}" x2="${zoneR}" y2="${zoneT+2*(zoneB-zoneT)/3}" stroke="#333" stroke-width="0.5"/>
       ${dots}
     </svg>
+    <div style="display:flex;gap:6px;font-size:8px;color:var(--muted);margin-top:2px">
+      <span><span style="color:#f44336">●</span>Strike</span>
+      <span><span style="color:#4caf50">●</span>Ball</span>
+      <span><span style="color:#2196f3">●</span>Play</span>
+    </div>
   </div>`;
 }
 
-function renderPitchLog(pitches) {
+function renderPitchLog(pitches, abEvent) {
   const el = document.getElementById('ab-pitch-log');
   if (!el) return;
   if (!pitches || !pitches.length) { el.innerHTML = ''; return; }
-  el.innerHTML = pitches.map((p, i) => {
-    const color = p.call==='C'?'#f44336':p.call==='B'?'#4caf50':p.call==='S'||p.call==='F'?'#f44336':p.call==='X'?'#2196f3':'#888';
-    const label = p.call==='C'?'Str':p.call==='B'?'Ball':p.call==='S'?'Swg':p.call==='F'?'Foul':p.call==='X'?'Play':p.call||'?';
-    return `<div style="display:flex;gap:6px;align-items:center;font-size:10px;line-height:16px;${i===pitches.length-1?'font-weight:700':''}"><span style="color:${color};width:10px">${i+1}</span><span style="color:var(--text);width:20px">${p.type||'--'}</span><span style="color:var(--muted);width:28px">${p.speed||''}</span><span style="color:${color}">${label}</span></div>`;
+  function pitchColor(c, p) { 
+    if ((c==='F'||c==='T'||c==='O') && p && p.strikes >= 2) return '#ff9800';
+    return c==='B'||c==='*B'||c==='H'?'#4caf50':c==='X'||c==='D'||c==='E'?'#2196f3':'#f44336'; 
+  }
+  function pitchLabel(c, isLast) {
+    if ((c==='X'||c==='D'||c==='E') && isLast && abEvent) return abEvent;
+    return c==='C'?'Str':c==='B'?'Ball':c==='*B'?'Ball':c==='S'?'Swg':c==='F'?'Foul':c==='T'?'Tip':c==='X'||c==='D'||c==='E'?'Play':c==='H'?'HBP':c==='M'?'Bunt':c==='O'?'Foul':c||'?';
+  }
+  let html = '<div style="width:fit-content;margin:0 auto">';
+  html += pitches.map((p, i) => {
+    const color = pitchColor(p.call, p);
+    const label = pitchLabel(p.call, i === pitches.length - 1);
+    return `<div style="display:grid;grid-template-columns:12px 24px 32px auto;gap:4px;font-size:10px;line-height:16px;${i===pitches.length-1?'font-weight:700':''}"><span style="color:${color}">${i+1}</span><span style="color:var(--text)">${p.type||'--'}</span><span style="color:var(--muted)">${p.speed||''}</span><span style="color:${color}">${label}</span></div>`;
   }).join('');
+  html += '</div>';
+  el.innerHTML = html;
   el.scrollTop = el.scrollHeight;
 }
 
@@ -1447,12 +1463,12 @@ function renderAbCount(balls, strikes, outs) {
   // Update just the BSO part — keep diamond as-is until end
   const bso = document.getElementById('ab-bso');
   if (bso) {
-    let h = '<span>B ';
-    for (let i=0;i<4;i++) h+=`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:2px;background:${i<balls?'#4caf50':'#333'}"></span>`;
-    h+='</span><span>S ';
-    for (let i=0;i<3;i++) h+=`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:2px;background:${i<strikes?'#f44336':'#333'}"></span>`;
-    h+='</span><span>O ';
-    for (let i=0;i<3;i++) h+=`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:2px;background:${i<outs?'#ff9800':'#333'}"></span>`;
+    let h = '<span>B';
+    for (let i=0;i<4;i++) h+=`<span style="display:inline-block;width:5px;height:5px;border-radius:50%;margin-left:2px;background:${i<balls?'#4caf50':'#333'}"></span>`;
+    h+='</span><span>S';
+    for (let i=0;i<3;i++) h+=`<span style="display:inline-block;width:5px;height:5px;border-radius:50%;margin-left:2px;background:${i<strikes?'#f44336':'#333'}"></span>`;
+    h+='</span><span>O';
+    for (let i=0;i<3;i++) h+=`<span style="display:inline-block;width:5px;height:5px;border-radius:50%;margin-left:2px;background:${i<outs?'#ff9800':'#333'}"></span>`;
     h+='</span>';
     bso.innerHTML = h;
   }
@@ -1476,7 +1492,7 @@ function renderSelectedAtBat() {
   if (!card || !_boxAtBats.length) return;
   const ab = _boxAtBats[_boxAbIndex];
   const pitchDots = (ab.pitch_sequence||[]).map(p => {
-    const c = p.call==='C'||p.call==='S'||p.call==='T'?'var(--red)':p.call==='B'?'var(--green)':p.call==='F'?'var(--gold)':'var(--blue)';
+    const c = p.call==='B'||p.call==='*B'||p.call==='H'?'#4caf50':p.call==='X'||p.call==='D'||p.call==='E'?'#2196f3':(p.call==='F'||p.call==='T'||p.call==='O')&&p.strikes>=2?'#ff9800':'#f44336';
     return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c}"></span>`;
   }).join('');
   card.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:10px">
@@ -1488,8 +1504,10 @@ function renderSelectedAtBat() {
     <div style="display:flex;gap:3px;margin-top:6px;align-items:center">${pitchDots}<span style="font-size:9px;color:var(--muted);margin-left:4px">${ab.pitches}P</span></div>
   </div>`;
   if (counter) counter.textContent = `${_boxAbIndex+1} / ${_boxAtBats.length}`;
+  highlightInningNav();
 
   // Setup diamond with BSO if present
+  const prevAb = _boxAbIndex > 0 ? _boxAtBats[_boxAbIndex-1] : null;
   if (dm) {
     dm.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center">
       <svg id="ab-diamond-svg" width="60" height="60" viewBox="0 0 100 100">
@@ -1498,13 +1516,13 @@ function renderSelectedAtBat() {
         <rect id="base-3" x="15" y="30" width="30" height="30" rx="2" transform="rotate(45 30 45)" fill="#333" stroke="#555" stroke-width="1.5"/>
         <polygon points="50,75 45,80 50,85 55,80" fill="#fff" stroke="#555" stroke-width="1"/>
       </svg>
-      <div id="ab-bso" style="display:flex;gap:8px;margin-top:4px;font-size:10px;color:var(--muted);white-space:nowrap"></div>
-      <div style="margin-top:4px;font-size:11px;font-weight:600;color:var(--text)">${ab.batter}</div>
-      <div style="font-size:10px;color:var(--muted)">vs ${ab.pitcher}</div>
+      <div id="ab-bso" style="display:flex;gap:6px;margin-top:4px;font-size:9px;color:var(--muted);white-space:nowrap"></div>
+      <div id="ab-score" style="margin-top:4px;font-size:9px;color:var(--muted);white-space:nowrap">${ab.away_abbr||''} ${prevAb?prevAb.away_score??0:ab.away_score??0} - ${prevAb?prevAb.home_score??0:ab.home_score??0} ${ab.home_abbr||''}</div>
     </div>`;
-    const prevAb = _boxAbIndex > 0 ? _boxAtBats[_boxAbIndex-1] : null;
     if (prevAb && prevAb.runners) renderAbDiamond(prevAb.runners);
   }
+  const matchupEl = document.getElementById('ab-matchup');
+  if (matchupEl) matchupEl.innerHTML = `<span style="font-weight:600;color:var(--text)">${ab.batter}</span> <span style="color:var(--muted)">vs</span> <span style="color:var(--muted)">${ab.pitcher}</span>`;
 
   // Animate pitches one by one
   const pitches = ab.pitch_sequence || [];
@@ -1527,8 +1545,10 @@ function renderSelectedAtBat() {
     if (zone) zone.innerHTML = renderStrikeZone(pitches, pitches[pitches.length-1]);
     const last = pitches[pitches.length-1];
     renderAbCount(last.balls||0, last.strikes||0, last.outs||0);
-    renderPitchLog(pitches);
+    renderPitchLog(pitches, ab.event);
     if (ab.runners) renderAbDiamond(ab.runners);
+    const scoreEl = document.getElementById('ab-score');
+    if (scoreEl) scoreEl.textContent = `${ab.away_abbr||''} ${ab.away_score??0} - ${ab.home_score??0} ${ab.home_abbr||''}`;
     _lastAnimatedAbIndex = _boxAbIndex;
     _lastAnimatedPitchCount = pitches.length;
     return;
@@ -1544,11 +1564,11 @@ function renderSelectedAtBat() {
     if (zone) zone.innerHTML = renderStrikeZone(shown, shown[shown.length-1]);
     const lastSeen = shown[shown.length-1];
     renderAbCount(lastSeen.balls||0, lastSeen.strikes||0, lastSeen.outs||0);
-    renderPitchLog(shown);
+    renderPitchLog(shown, ab.event);
   } else {
     if (zone) zone.innerHTML = renderStrikeZone([], null);
     renderAbCount(0, 0, 0);
-    renderPitchLog([]);
+    renderPitchLog([], ab.event);
   }
 
   let i = skipCount;
@@ -1557,14 +1577,16 @@ function renderSelectedAtBat() {
       clearInterval(_abAnimTimer); _abAnimTimer = null;
       _lastAnimatedAbIndex = _boxAbIndex;
       _lastAnimatedPitchCount = pitches.length;
-      // Show final runners
+      // Show final runners and update score
       if (ab.runners) renderAbDiamond(ab.runners);
+      const scoreEl = document.getElementById('ab-score');
+      if (scoreEl) scoreEl.textContent = `${ab.away_abbr||''} ${ab.away_score??0} - ${ab.home_score??0} ${ab.home_abbr||''}`;
       return;
     }
     const shown = pitches.slice(0, i+1);
     if (zone) zone.innerHTML = renderStrikeZone(shown, shown[shown.length-1]);
     renderAbCount(pitches[i].balls||0, pitches[i].strikes||0, pitches[i].outs||0);
-    renderPitchLog(shown);
+    renderPitchLog(shown, ab.event);
     i++;
   }, 1500);
 }
@@ -1577,6 +1599,43 @@ function abNav(dir) {
     _lastAnimatedPitchCount = 0;
   }
   _boxAbIndex = newIdx;
+  renderSelectedAtBat();
+}
+
+function buildInningNav() {
+  const nav = document.getElementById('ab-inning-nav');
+  if (!nav || !_boxAtBats.length) return;
+  const tops = [], bots = [];
+  _boxAtBats.forEach((ab, i) => {
+    const arr = ab.half==='top' ? tops : bots;
+    if (!arr.length || arr[arr.length-1].inning !== ab.inning) {
+      arr.push({inning: ab.inning, idx: i});
+    }
+  });
+  const cols = Math.max(tops.length, bots.length);
+  let html = `<div style="display:grid;grid-template-columns:repeat(${cols},20px);gap:0;text-align:center">`;
+  tops.forEach(inn => { html += `<span data-inn="top${inn.inning}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;color:var(--muted);font-size:9px">▲${inn.inning}</span>`; });
+  for (let i = tops.length; i < cols; i++) html += '<span></span>';
+  bots.forEach(inn => { html += `<span data-inn="bot${inn.inning}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;color:var(--muted);font-size:9px">▼${inn.inning}</span>`; });
+  html += '</div>';
+  nav.innerHTML = html;
+}
+
+function highlightInningNav() {
+  const nav = document.getElementById('ab-inning-nav');
+  if (!nav || !_boxAtBats.length) return;
+  const ab = _boxAtBats[_boxAbIndex];
+  const key = (ab.half==='top'?'top':'bot') + ab.inning;
+  nav.querySelectorAll('span[data-inn]').forEach(el => {
+    el.style.color = el.dataset.inn === key ? 'var(--green)' : 'var(--muted)';
+    el.style.fontWeight = el.dataset.inn === key ? '700' : '400';
+  });
+}
+
+function jumpToInning(idx) {
+  _boxAbIndex = idx;
+  _lastAnimatedAbIndex = -1;
+  _lastAnimatedPitchCount = 0;
   renderSelectedAtBat();
 }
 
@@ -1596,10 +1655,31 @@ async function loadAtBatScroller(gameId) {
       <div id="ab-card-display" style="flex:1;max-width:300px"></div>
       <button onclick="abNav(1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">▶</button>
     </div>
-    <div id="ab-counter" style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px"></div>`;
+    <div id="ab-counter" style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px"></div>
+    <div id="ab-inning-nav" style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px"></div>`;
+    buildInningNav();
     renderSelectedAtBat();
   } catch(e) { el.innerHTML = ''; }
 }
+function buildLinescoreTable(d) {
+  const lt = d.linescore_table;
+  if (!lt || !lt.innings || !lt.innings.length) return `<pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre>`;
+  const cs = 'style="padding:4px 8px;border:1px solid var(--border);text-align:center;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',monospace"';
+  const hs = 'style="padding:4px 8px;border:1px solid var(--border);text-align:center;font-size:10px;color:var(--muted);font-weight:600"';
+  const ts = 'style="padding:4px 8px;border:1px solid var(--border);text-align:left;font-size:11px;font-weight:600;white-space:nowrap"';
+  let html = '<table style="border-collapse:collapse;min-width:100%"><tr><td '+hs+'></td>';
+  lt.innings.forEach(inn => { html += `<td ${hs}>${inn.num}</td>`; });
+  html += `<td ${hs}>R</td><td ${hs}>H</td><td ${hs}>E</td></tr>`;
+  html += `<tr><td ${ts}>${d.away_team}</td>`;
+  lt.innings.forEach(inn => { html += `<td ${cs}>${inn.away!==''?inn.away:'-'}</td>`; });
+  html += `<td ${cs}><b>${lt.away.r}</b></td><td ${cs}>${lt.away.h}</td><td ${cs}>${lt.away.e}</td></tr>`;
+  html += `<tr><td ${ts}>${d.home_team}</td>`;
+  lt.innings.forEach(inn => { html += `<td ${cs}>${inn.home!==''?inn.home:'-'}</td>`; });
+  html += `<td ${cs}><b>${lt.home.r}</b></td><td ${cs}>${lt.home.h}</td><td ${cs}>${lt.home.e}</td></tr>`;
+  html += '</table>';
+  return html;
+}
+
 function buildBattingTable(batters, teamId, teamName) {
   let html = `<div class="section-header">${teamLogo(teamId)} ${teamName} — Batting</div>`;
   html += `<div class="player-card" style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">`;
@@ -1631,12 +1711,21 @@ async function refreshBoxScoreData(gameId) {
     if (!br.available) return;
     // Update linescore
     const ls = document.getElementById('box-linescore');
-    if (ls) ls.innerHTML = `<pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${br.linescore}</pre>`;
+    if (ls) ls.innerHTML = buildLinescoreTable(br);
     // Update diamond only if user is on the latest at-bat and no animation running
     const dm = document.getElementById('box-diamond');
     const isAtEnd = _boxAbIndex === _boxAtBats.length - 1;
     if (dm && lr.available && isAtEnd && !_abAnimTimer) {
-      dm.innerHTML = `<div style="text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${lr.inning_half||''} ${lr.inning||''}</div>${renderDiamond(lr.runners, lr.count)}<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--text)">${lr.batter||''}</div><div style="font-size:11px;color:var(--muted)">vs ${lr.pitcher||''}</div></div>`;
+      const on = 'var(--green)', off = '#333';
+      const svg = document.getElementById('ab-diamond-svg');
+      if (svg) {
+        svg.querySelector('#base-1').setAttribute('fill', lr.runners.first?on:off);
+        svg.querySelector('#base-2').setAttribute('fill', lr.runners.second?on:off);
+        svg.querySelector('#base-3').setAttribute('fill', lr.runners.third?on:off);
+      }
+      if (lr.count) renderAbCount(lr.count.balls||0, lr.count.strikes||0, lr.count.outs||0);
+      const matchupEl = document.getElementById('ab-matchup');
+      if (matchupEl) matchupEl.innerHTML = `<span style="font-weight:600;color:var(--text)">${lr.batter||''}</span> <span style="color:var(--muted)">vs</span> <span style="color:var(--muted)">${lr.pitcher||''}</span>`;
     }
     // Update tables
     const tb = document.getElementById('box-tables');
@@ -1676,14 +1765,15 @@ async function renderBoxScore(gameId) {
 
   let html = backBtn() + `<div style="padding:0 16px 12px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
   // Linescore container
-  html += `<div id="box-linescore" class="player-card" style="overflow-x:auto;min-height:60px"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
+  html += `<div id="box-linescore" class="player-card" style="overflow-x:auto;min-height:60px">${buildLinescoreTable(d)}</div>`;
   // Diamond + Strike Zone container (stacked vertically for mobile)
   html += `<div class="player-card" style="padding:12px">`;
+  html += `<div id="ab-matchup" style="text-align:center;font-size:11px;margin-bottom:8px;height:16px"><span style="font-weight:600;color:var(--text)"></span></div>`;
   html += `<div style="display:flex;align-items:center;justify-content:center;gap:16px">`;
-  html += `<div id="box-diamond" style="width:100px;height:130px"></div>`;
+  html += `<div id="box-diamond" style="width:100px;height:105px"></div>`;
   html += `<div id="ab-strike-zone" style="width:140px;height:160px"></div>`;
   html += `</div>`;
-  html += `<div id="ab-pitch-log" style="height:80px;overflow-y:auto;padding:6px 12px;border-top:1px solid var(--border);margin-top:8px;font-family:'SF Mono','Fira Code',monospace"></div>`;
+  html += `<div id="ab-pitch-log" style="height:80px;overflow-y:auto;padding:6px 12px;border-top:1px solid var(--border);margin-top:8px;font-family:'SF Mono','Fira Code',monospace;display:flex;flex-direction:column;align-items:center"></div>`;
   html += `</div>`;
   // At-Bat nav
   html += `<div class="section-header">At-Bat Play-by-Play</div>`;
@@ -1699,15 +1789,6 @@ async function renderBoxScore(gameId) {
   html += `<div class="player-card" style="margin-top:8px"><a href="https://www.mlb.com/gameday/${gameId}" target="_blank" style="display:block;padding:12px 16px;color:var(--blue);text-decoration:none;font-weight:600;font-size:13px">View on MLB.com →</a></div>`;
 
   document.getElementById('stats-content').innerHTML = html;
-
-  // Load diamond initially
-  try {
-    const lr = await fetch(`/api/game/${gameId}/live`);
-    const live = await lr.json();
-    if (live.available) {
-      document.getElementById('box-diamond').innerHTML = `<div style="text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${live.inning_half||''} ${live.inning||''}</div>${renderDiamond(live.runners, live.count)}<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--text)">${live.batter||''}</div><div style="font-size:11px;color:var(--muted)">vs ${live.pitcher||''}</div></div>`;
-    }
-  } catch(e) {}
 
   // Load at-bats (this also renders strike zone for selected ab)
   await loadAtBatScroller(gameId);

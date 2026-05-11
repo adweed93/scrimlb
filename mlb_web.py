@@ -292,6 +292,7 @@ def live_games():
                 entry["balls"] = entry["strikes"] = entry["outs"] = 0
             result["live"].append(entry)
         elif g["status"] == "Final":
+            entry["innings"] = g.get("current_inning", 9)
             result["final"].append(entry)
         else:
             result["upcoming"].append(entry)
@@ -1495,7 +1496,9 @@ def game_preview(game_id):
         def predict_pitcher(team_id):
             """Predict next starter based on last 5 starters rotation."""
             try:
-                sched = statsapi.schedule(team=team_id)
+                start = (datetime.now() - timedelta(days=14)).strftime("%m/%d/%Y")
+                end = datetime.now().strftime("%m/%d/%Y")
+                sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
                 finals = [x for x in sched if x["status"] == "Final"]
                 starters = []
                 for fg in reversed(finals[-10:]):
@@ -1537,7 +1540,9 @@ def game_preview(game_id):
         # Recent lineups from last game
         def get_lineup(team_id):
             try:
-                sched = statsapi.schedule(team=team_id)
+                start = (datetime.now() - timedelta(days=14)).strftime("%m/%d/%Y")
+                end = datetime.now().strftime("%m/%d/%Y")
+                sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
                 finals = [x for x in sched if x["status"] == "Final"]
                 if not finals:
                     return [], True
@@ -1719,6 +1724,16 @@ def game_boxscore(game_id):
 
         # Linescore
         linescore = statsapi.linescore(game_id)
+        # Structured linescore for table rendering
+        gd = statsapi.get("game", {"gamePk": game_id})
+        ls_data = gd.get("liveData", {}).get("linescore", {})
+        innings = ls_data.get("innings", [])
+        ls_teams = ls_data.get("teams", {})
+        linescore_table = {
+            "innings": [{"num": inn["num"], "away": inn.get("away", {}).get("runs", ""), "home": inn.get("home", {}).get("runs", "")} for inn in innings],
+            "away": {"r": ls_teams.get("away", {}).get("runs", 0), "h": ls_teams.get("away", {}).get("hits", 0), "e": ls_teams.get("away", {}).get("errors", 0)},
+            "home": {"r": ls_teams.get("home", {}).get("runs", 0), "h": ls_teams.get("home", {}).get("hits", 0), "e": ls_teams.get("home", {}).get("errors", 0)},
+        }
 
         return jsonify({
             "available": True,
@@ -1729,6 +1744,7 @@ def game_boxscore(game_id):
             "away_pitchers": parse_pitchers("away"),
             "home_pitchers": parse_pitchers("home"),
             "linescore": linescore,
+            "linescore_table": linescore_table,
         })
     except Exception as e:
         return jsonify({"available": False, "error": str(e)})
@@ -1741,6 +1757,9 @@ def game_plays(game_id):
         import requests as req
         feed = req.get(f"https://statsapi.mlb.com/api/v1.1/game/{game_id}/feed/live").json()
         all_plays = feed.get("liveData", {}).get("plays", {}).get("allPlays", [])
+        gd = feed.get("gameData", {})
+        away_abbr = gd.get("teams", {}).get("away", {}).get("abbreviation", "AWY")
+        home_abbr = gd.get("teams", {}).get("home", {}).get("abbreviation", "HME")
         at_bats = []
         for play in all_plays:
             result = play.get("result", {})
@@ -1786,6 +1805,10 @@ def game_plays(game_id):
                 "pitches": len(pitches),
                 "pitch_sequence": pitches,
                 "runners": end_bases,
+                "away_score": result.get("awayScore", 0),
+                "home_score": result.get("homeScore", 0),
+                "away_abbr": away_abbr,
+                "home_abbr": home_abbr,
             })
         return jsonify({"plays": at_bats})
     except Exception as e:

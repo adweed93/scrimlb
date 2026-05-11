@@ -799,6 +799,7 @@ async function loadPlayerFilter(type) {
       html += '</div>';
     }
     document.getElementById('stats-content').innerHTML = html;
+    gradeStats();
   } else {
     // yearByYear - fetch and show dropdown
     const r = await fetch(`/api/player/${_currentPlayerId}/yearByYear`);
@@ -851,6 +852,7 @@ function showYearDashboard() {
     }
   }
   document.getElementById('year-dashboard').innerHTML = html;
+  gradeStats();
 }
 
 function buildStatDashboard(s, position) {
@@ -1094,6 +1096,7 @@ async function loadDefense(playerId) {
   }
 
   document.getElementById('stats-content').innerHTML = html;
+  gradeStats();
 }
 
 function gradeStats() {

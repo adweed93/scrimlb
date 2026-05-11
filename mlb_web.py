@@ -206,6 +206,14 @@ def live_games():
             "game_time": g.get("game_datetime", ""),
         }
         if g["status"] == "In Progress":
+            try:
+                import requests as req
+                ls = req.get(f"https://statsapi.mlb.com/api/v1/game/{g['game_id']}/linescore").json()
+                entry["balls"] = ls.get("balls", 0)
+                entry["strikes"] = ls.get("strikes", 0)
+                entry["outs"] = ls.get("outs", 0)
+            except Exception:
+                entry["balls"] = entry["strikes"] = entry["outs"] = 0
             result["live"].append(entry)
         elif g["status"] == "Final":
             result["final"].append(entry)

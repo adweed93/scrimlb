@@ -230,6 +230,20 @@ body .stat-cell .val[data-grade="terrible"] { color: #f44336; }
 let _currentPlayerId = null;
 const _playerCache = {}; // Prefetch cache: {playerId: {data, ts}}
 const CACHE_TTL = 60000; // 60s
+let _navHistory = [];
+
+function navPush(type, id) { _navHistory.push({type, id}); }
+function navBack() {
+  _navHistory.pop(); // remove current
+  const prev = _navHistory.pop();
+  if (!prev) { switchTab('scores'); loadScores(); return; }
+  if (prev.type==='player') loadPlayer(prev.id);
+  else if (prev.type==='team') loadTeam(prev.id);
+  else if (prev.type==='box') loadBoxScore(prev.id);
+  else if (prev.type==='preview') loadGamePreview(prev.id);
+  else { switchTab('scores'); loadScores(); }
+}
+const backBtn = () => `<div style="padding:8px 16px"><button onclick="navBack()" style="background:none;border:none;color:var(--blue);font-size:13px;cursor:pointer;padding:0;font-weight:600">← Back</button></div>`;
 
 const playerImg = (id, size=40) => `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;background:var(--border)" onerror="this.style.display='none'">`;
 const teamLogo = (id, size=24) => `<img src="https://www.mlbstatic.com/team-logos/${id}.svg" style="width:${size}px;height:${size}px" onerror="this.style.display='none'">`;
@@ -433,11 +447,12 @@ async function loadTeam(id) {
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
+  navPush('team', id);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
   const r = await fetch(`/api/team/${id}`);
   const d = await r.json();
-  let html = '';
+  let html = backBtn();
   if (d.live) {
     html += `<div class="game-card"><div class="game-status"><span class="live-dot">●</span> LIVE — ${d.live.inning_state} ${d.live.inning}</div>
       <div class="team-row"><span class="team-name">${d.live.away}</span><span class="team-score">${d.live.away_score}</span></div>
@@ -549,6 +564,7 @@ async function loadPlayer(id) {
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
+  navPush('player', id);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
   let d;
@@ -561,7 +577,7 @@ async function loadPlayer(id) {
     _playerCache[id] = {data: d, ts: Date.now()};
   }
   const s = d.stats;
-  let html = filterTabs('season');
+  let html = backBtn() + filterTabs('season');
   // Build medal map from rankings
   const _medals = {};
   (d.rankings||[]).forEach(r => {
@@ -1248,6 +1264,7 @@ async function loadFieldAndZone(gameId) {
 let _boxRefreshTimer = null;
 async function loadGamePreview(gameId) {
   window._viewingHistory = true;
+  navPush('preview', gameId);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading preview...</div></div>';
   const r = await fetch(`/api/game/${gameId}/preview`);
@@ -1255,7 +1272,7 @@ async function loadGamePreview(gameId) {
   if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Preview unavailable</div></div>'; return; }
 
   const gt = d.game_time ? new Date(d.game_time).toLocaleString('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
-  let html = `<div class="player-card"><div class="player-header" style="text-align:center">
+  let html = backBtn() + `<div class="player-card"><div class="player-header" style="text-align:center">
     <div class="name">${teamLogo(d.away_id,28)} ${d.away} <span style="color:var(--muted)">@</span> ${d.home} ${teamLogo(d.home_id,28)}</div>
     <div class="meta">${gt} • ${d.venue}</div></div></div>`;
 
@@ -1349,7 +1366,6 @@ async function loadGamePreview(gameId) {
     html += '</div>';
   }
 
-  html += `<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="switchTab('scores');loadScores()">← Back to Scores</button></div>`;
   document.getElementById('stats-content').innerHTML = html;
 }
 
@@ -1357,6 +1373,7 @@ async function loadBoxScore(gameId) {
   if (_boxRefreshTimer) clearInterval(_boxRefreshTimer);
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
+  navPush('box', gameId);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
   await renderBoxScore(gameId);
@@ -1632,7 +1649,7 @@ async function renderBoxScore(gameId) {
   const d = await r.json();
   if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
 
-  let html = `<div style="padding:12px 16px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
+  let html = backBtn() + `<div style="padding:0 16px 12px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
   // Linescore container
   html += `<div id="box-linescore" class="player-card" style="overflow-x:auto;min-height:60px"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
   // Diamond + Strike Zone container

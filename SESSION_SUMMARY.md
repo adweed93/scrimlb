@@ -329,3 +329,107 @@
 - Rankings: live queries to `league_leaders` with `leagueId` for AL/NL specificity
 - Performance: prefetch + client cache + server TTL cache = near-instant repeat visits
 - All comparison data flows: `mlb_records.py` → `mlb_comparisons.py` → `mlb_web.py` → frontend
+
+
+## Session: May 11, 2026 (Late Night continued)
+
+### Feature: Game Preview Page
+- Clicking any upcoming game card opens a full preview page
+- `/api/game/<id>/preview` endpoint returns: probable pitchers with season stats, projected lineups (from last game), series history (last 60 days), injuries (IL data), weather (WeatherAPI), odds (ESPN/DraftKings)
+- All players in preview are clickable → opens their dashboard
+- Series history shows win/loss record and individual game scores (clickable for box scores)
+- **Commits**: `9a55f3b`, `8dfd18c`, `c376ae2`
+
+### Feature: Live Scores BSO Tracker
+- Scores page shows Ball/Strike/Out colored dots for live games (green/red/orange)
+- Game times shown for upcoming/scheduled games (local time format)
+- Backend fetches linescore for live games to get B/S/O data
+- **Commit**: `03449db`
+
+### Feature: Scores Page Navigation Tabs
+- Three tabs at top: **Past | Today | Upcoming**
+- Past: All final games from last 2 weeks grouped by date
+- Today: Live games (with BSO), upcoming today, finals, coming up next preview
+- Upcoming: Full 2-week future schedule grouped by date
+- Auto-refresh paused when viewing Past or Upcoming (prevents overwriting)
+- Coming Up Next at top when no live games, at bottom when live games active
+- Upcoming data cached client-side with 10-min TTL
+- **Commits**: `b48ddda`, `cf84905`, `924becb`, `bc0587d`, `a9da745`
+
+### Feature: Two-Way Player Support
+- Detects `TWP` position (e.g., Ohtani) and returns both hitting + pitching stats
+- Frontend shows both stat blocks: full hitter layout + pitching section below with divider
+- **Commit**: `e2dfb3d`
+
+### Feature: Color-Graded Stats
+- All stat values colored on a 6-tier gradient: 🔴 terrible → 🟠 bad → 🟡 average → 🟢 good → 🟢 elite → 🔵 legendary (blue glow)
+- Uses **real 2026 MLB league averages** fetched from API (`/api/league-averages`, cached 1hr)
+- Rate stats (AVG, OPS, ERA, etc.) graded as % above/below league average
+- Counting stats (HR, RBI, SB, etc.) scaled by context: season (mid-year), full (162G), career
+- Reversed stats handled: ERA, WHIP, BB/9, K (batters), H/9, HR/9, BAA, AB/HR
+- Applied to all tabs: Season, Career, Year-by-Year, Defense
+- **Commits**: `6dd221f`, `16d1dcb`, `d823ed6`, `5ce6640`, `47d1456`, `0a3cf5c`, `e1559e0`, `0e57bd9`, `552cf84`
+
+### Feature: Star/Favorite Button on Player Dashboard
+- Gold ☆ button in player header to add player to favorites
+- **Commit**: `8940d53`
+
+### Enhancement: Sample-Size-Aware Red Flags
+- Three severity tiers based on games played: `caution` (<30G), `bad` (30-60G), `terrible` (60+G)
+- Early-season flags include recovery context ("Eugenio Suárez hit .168 through April 2022 and finished .236")
+- New `caution` CSS level: yellow/amber styling with 📉 icon
+- Pitchers scaled by IP instead of games
+- Red flags sorted least-to-most severe (top to bottom)
+- **Commit**: `fcb31f4`
+
+### Enhancement: Defense Tab Insights & Red Flags
+- Insights: FLD% context, error-free streaks, range factor, DP production, multi-position versatility
+- Red flags: sub-.950 FLD%, high error rates
+- **Commit**: `c1331e1`
+
+### Enhancement: Clickable Players in Box Score
+- All batter and pitcher names in box scores are clickable → opens their player dashboard
+- **Commit**: `7b2211b`
+
+### Enhancement: Refresh Rate
+- Live scores, player Live tab, and box score refresh every 6 seconds (was 15)
+- Team page stays at 15s
+- **Commit**: `353df46`
+
+### Bugfix: Year-by-Year Team Names
+- Was showing "Unknown" because `statsapi.player_stat_data()` doesn't include team info
+- Fixed by using raw API (`statsapi.get("person", ...)`) which includes `team.name` in splits
+- **Commit**: `7d4f50d`
+
+### Bugfix: Past 2 Weeks Button
+- Auto-refresh was overwriting history view every 6 seconds
+- Added `_viewingHistory` flag to pause refresh when viewing non-today content
+- **Commit**: `b48ddda`
+
+### Bugfix: Back to Scores Button on Game Preview
+- Preview opens on stats panel but back button needed to switch to scores panel
+- **Commit**: `c376ae2`
+
+### UI: Page Title
+- Changed from "MLB Dashboard" to "ScriMLB"
+- **Commit**: `7d4f50d`
+
+### Removed: Demo Mode
+- Removed demo button and demo endpoints (no longer needed after live diamond fix confirmed)
+- **Commit**: `696da7d`
+
+### External APIs Integrated
+- **WeatherAPI** (key: set as WEATHER_API_KEY env var on Render) — game day weather for outdoor stadiums
+- **ESPN Odds** (free, no key) — moneyline + over/under from DraftKings via ESPN scoreboard API
+- **MLB Injuries** (free) — IL status from roster API for both teams in preview
+
+### Known Issues (to fix later)
+- **Favorites not persisting**: Render's ephemeral filesystem wipes `mlb_favorites.json` on redeploy/restart. Solution: migrate to browser localStorage.
+- **Render cold starts**: Free tier spins down after 15min inactivity. Solution: UptimeRobot ping or upgrade to Starter ($7/mo).
+
+### Architecture Notes
+- League averages: fetched from MLB teams/stats API, cached 1hr server-side + client memory
+- Color grading: computed client-side from real league averages with percentage-based thresholds
+- Game preview: parallel data from schedule, roster, boxscore, ESPN, WeatherAPI
+- Scores nav: `_viewingHistory` flag controls auto-refresh behavior
+- `_upcomingCache` + `_upcomingCacheTs` for 10-min client cache of upcoming games

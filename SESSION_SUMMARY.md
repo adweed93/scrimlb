@@ -244,3 +244,88 @@
 - Uses existing `/api/game/<id>/live` endpoint (MLB live feed API)
 - Auto-refreshes with the 15s box score timer
 - **Commit**: `3451c20`
+
+
+## Session: May 10, 2026 (Night)
+
+### Bugfix: Live Diamond & Strike Zone Not Showing
+- **Problem**: The diamond/strike zone never appeared on live games
+- **Root Cause**: Backend used `statsdata.mlb.com` (doesn't resolve) instead of `statsapi.mlb.com`
+- **Fix**: Changed URL in `/api/game/<id>/live` endpoint
+- **Commit**: `eaeb3ba`
+
+### Feature: Demo Mode for Diamond + Strike Zone
+- Added `/api/game/demo/live` and `/api/game/demo/boxscore` endpoints with fake data
+- Small gold "⚾ Demo" button on Scores tab top-right to preview the full box score view
+- Shows: Orioles vs Yankees, runners on 1st/2nd, Gunnar vs Cole, 5 pitches plotted
+- **Commit**: `9a62255`
+
+### Enhancement: Pitch Velocity & Type in Strike Zone
+- Backend now sends `speed` and `type` (pitch type code) for each pitch
+- Strike zone dots are numbered (1, 2, 3...)
+- Pitch sequence log below zone shows: pitch number, type (FF/SL/CH), velocity, result
+- Last pitch bolded in the log
+- **Commit**: `33b1219`
+
+### Feature: Defense Tab
+- New "🧤 Defense" filter tab on player dashboard (for all players)
+- `/api/player/<id>/fielding` endpoint returns season + career fielding stats split by position
+- Each position card shows: FLD%, G, GS, TC, E, TE (Core) and PO, A, DP, RF/G, RF/9 (Range & Plays)
+- DH entries filtered out, green highlights on .980+ FLD% and 0 errors
+- **Commit**: `75f09ca`
+
+### Enhancement: Dynamic Archetype-Based Comparisons
+- **New file**: `mlb_comparisons.py` — replaces fixed RECORDS dict with archetype detection
+- Hitter archetypes: power (HR pace/SLG), contact (AVG/hit pace), speed (SB pace), discipline (BB%/OBP)
+- Pitcher archetypes: strikeout (K/9), control (ERA/WHIP)
+- Players can have multiple archetypes — only shows comparisons relevant to their strengths
+- A speed guy gets compared to Henderson/Coleman, a power hitter to Bonds/Judge
+- **Commit**: `f19e85a`
+
+### Enhancement: API-Verified Historical Records
+- **New file**: `mlb_records.py` — fetches verified records from MLB Stats API
+- Queries `league_leaders` for record-setting seasons (2001 HR, 1968 ERA, 1973 K, 2004 Hits, etc.)
+- Cached in `mlb_records_cache.json`, refreshes weekly
+- Hardcoded fallbacks for pre-1960 stats where API is unreliable (AVG .406, RBI 191, etc.)
+- **Commit**: `8949021`
+
+### Bugfix: Player Live Tab Broken
+- **Problem**: Live tab never showed player's in-game stats, and "next game" was always empty
+- **Root Cause 1**: Boxscore parsing iterated `awayBatters` as IDs instead of dicts with `personId`
+- **Root Cause 2**: `statsapi.schedule(team=id)` only returns today's games — no future lookup
+- **Fix**: Correct boxscore parsing (same fix as box score endpoint), look ahead 7 days for next game
+- **Commit**: `a41b879`
+
+### Enhancement: League Rankings
+- New "📊 League Rankings" section on season dashboard
+- `_get_player_rankings()` helper queries `league_leaders` for top-30 in player's league (AL/NL)
+- Shows stats where player ranks top-15 with medals: 🥇 1st, 🥈 2nd, 🥉 3rd
+- AL teams determined by hardcoded team ID set
+- **Commit**: `d8d9d45`
+
+### Enhancement: Games-Played-Based Insights
+- Insights now include per-game rates and games-played context instead of generic statements
+- Examples: "9 HR in 40 games (0.23/game)", "4.3 K/BB ratio — 56 K vs 13 BB", "5 SB (83% success)"
+- Sample size awareness: "Small sample — could normalize" vs "Sustained slump"
+- Pitchers: IP/start, K/start, baserunners per 9 IP, W-L context
+- Shows 4 insights instead of 3
+- **Commit**: `d8d9d45`
+
+### Enhancement: Prefetch Favorites on Page Load
+- Client-side `_playerCache` with 60s TTL
+- 500ms after page load, fetches `/api/player/<id>` for first 5 favorite players in background
+- `loadPlayer()` checks cache first — instant render if prefetched
+- **Commit**: `dcc3582`
+
+### UI: Live Tab First + Medals on Stat Cells
+- Live tab moved to leftmost position in filter tabs
+- Stat cells show medal emoji (🥇🥈🥉) next to the value if player is top-3 in their league
+- Works for: AVG, OPS, HR, R, RBI, SB (hitters) and ERA, W-L, WHIP, K (pitchers)
+- **Commits**: `ce21e2a`, `a6d6938`
+
+### Architecture Notes
+- Historical records: hybrid approach — API-verified where reliable, hardcoded for pre-1960
+- Dynamic thresholds (`mlb_thresholds.py`): calibrated from current season leaders, refreshed daily
+- Rankings: live queries to `league_leaders` with `leagueId` for AL/NL specificity
+- Performance: prefetch + client cache + server TTL cache = near-instant repeat visits
+- All comparison data flows: `mlb_records.py` → `mlb_comparisons.py` → `mlb_web.py` → frontend

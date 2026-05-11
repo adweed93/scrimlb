@@ -1636,9 +1636,9 @@ async function renderBoxScore(gameId) {
   // Linescore container
   html += `<div id="box-linescore" class="player-card" style="overflow-x:auto;min-height:60px"><pre style="padding:12px;font-size:11px;color:var(--text);white-space:pre;font-family:monospace;margin:0">${d.linescore}</pre></div>`;
   // Diamond + Strike Zone container
-  html += `<div class="player-card" style="padding:16px;display:flex;align-items:flex-start;justify-content:center;gap:24px;flex-wrap:wrap;min-height:320px">`;
-  html += `<div id="box-diamond" style="min-width:120px;min-height:180px"></div>`;
-  html += `<div style="text-align:center;min-width:160px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Strike Zone</div><div id="ab-strike-zone" style="height:320px;overflow:hidden"></div></div>`;
+  html += `<div class="player-card" style="padding:16px;display:flex;align-items:flex-start;justify-content:center;gap:24px;height:340px;overflow:hidden">`;
+  html += `<div id="box-diamond" style="min-width:120px;height:180px"></div>`;
+  html += `<div style="text-align:center;min-width:160px;height:320px;overflow:hidden"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Strike Zone</div><div id="ab-strike-zone" style="height:300px;overflow:hidden"></div></div>`;
   html += `</div>`;
   // At-Bat nav
   html += `<div class="section-header">At-Bat Play-by-Play</div>`;

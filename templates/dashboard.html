@@ -235,6 +235,7 @@ function switchTab(id) {
 
 // Scores
 async function loadScores() {
+  window._viewingHistory = false;
   document.getElementById('scores-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
   const r = await fetch('/api/live');
   const d = await r.json();
@@ -292,6 +293,7 @@ async function loadScores() {
 }
 
 async function loadHistoricalGames() {
+  window._viewingHistory = true;
   document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading past games...</div></div>';
   const r = await fetch('/api/games/history');
   const games = await r.json();
@@ -1276,7 +1278,7 @@ async function checkNotifs() { await fetch('/api/notifications'); loadNotifs(); 
 async function clearNotifs() { await fetch('/api/notifications/clear',{method:'POST'}); loadNotifs(); }
 
 // Auto-refresh
-setInterval(() => { if (document.querySelector('#scores.active')) loadScores(); }, 6000);
+setInterval(() => { if (document.querySelector('#scores.active') && !window._viewingHistory) loadScores(); }, 6000);
 loadScores();
 
 // Prefetch favorite players in background after initial load

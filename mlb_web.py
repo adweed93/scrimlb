@@ -673,6 +673,10 @@ def player_stats(player_id):
         pass
     rankings = _get_player_rankings(player_name, group, team_id_for_rank) if games > 10 else []
 
+    # Sort red flags: least severe first
+    _severity = {"caution": 0, "bad": 1, "terrible": 2}
+    red_flags.sort(key=lambda x: _severity.get(x["level"], 1))
+
     return jsonify({
         "name": player_name,
         "position": info.get("position", ""),
@@ -1133,6 +1137,9 @@ def player_career(player_id):
         if wins > 0 and losses > 0 and (wins / (wins + losses)) < .450 and (wins + losses) >= 200:
             pct = wins / (wins + losses)
             red_flags.append({"msg": f".{int(pct*1000)} career win percentage", "level": "bad", "nugget": "A sub-.450 win% over 200+ decisions often reflects pitching for bad teams or inconsistency"})
+
+    _severity = {"caution": 0, "bad": 1, "terrible": 2}
+    red_flags.sort(key=lambda x: _severity.get(x["level"], 1))
 
     return jsonify({
         "name": info.get("first_name", "") + " " + info.get("last_name", ""),

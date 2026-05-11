@@ -1453,6 +1453,7 @@ async function loadAtBatScroller(gameId) {
       </div>`;
     }).join('');
     el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding:4px 0;scroll-snap-type:x mandatory">${cards}</div>`;
+    el.firstChild.scrollLeft = el.firstChild.scrollWidth;
   } catch(e) { el.innerHTML = ''; }
 }
 async function renderBoxScore(gameId) {

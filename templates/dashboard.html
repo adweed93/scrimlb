@@ -53,6 +53,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-se
 .stat-cell .val { font-size: 20px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: #fff; }
 .stat-cell .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 .stat-cell.highlight .val { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+body .stat-cell .val[data-grade="legendary"] { color: var(--gold); text-shadow: 0 0 8px var(--gold); }
 body .stat-cell .val[data-grade="elite"] { color: #00e676; }
 body .stat-cell .val[data-grade="good"] { color: #69f0ae; }
 body .stat-cell .val[data-grade="avg"] { color: #ffeb3b; }
@@ -1102,17 +1103,17 @@ async function loadDefense(playerId) {
 function gradeStats() {
   // League average benchmarks (2026 approximations)
   const benchmarks = {
-    'AVG': [.200, .230, .250, .290, .320],
-    'OBP': [.280, .310, .330, .370, .400],
-    'SLG': [.340, .380, .420, .500, .560],
-    'OPS': [.620, .680, .720, .820, .900],
-    'HR': [3, 8, 15, 25, 35],  // scaled to ~40 games
-    'RBI': [5, 15, 25, 40, 55],
-    'SB': [0, 2, 5, 12, 20],
-    'ERA': [5.50, 4.50, 3.80, 3.00, 2.20],  // reversed: lower is better
-    'WHIP': [1.60, 1.40, 1.25, 1.05, 0.90],  // reversed
-    'K/9': [5, 7, 8.5, 10.5, 12],
-    'FLD%': [.950, .965, .975, .985, .995],
+    'AVG': [.200, .230, .250, .290, .320, .350],
+    'OBP': [.280, .310, .330, .370, .400, .440],
+    'SLG': [.340, .380, .420, .500, .560, .650],
+    'OPS': [.620, .680, .720, .820, .900, 1.000],
+    'HR': [3, 8, 15, 25, 35, 50],
+    'RBI': [5, 15, 25, 40, 55, 75],
+    'SB': [0, 2, 5, 12, 20, 35],
+    'ERA': [5.50, 4.50, 3.80, 3.00, 2.20, 1.50],
+    'WHIP': [1.60, 1.40, 1.25, 1.05, 0.90, 0.75],
+    'K/9': [5, 7, 8.5, 10.5, 12, 14],
+    'FLD%': [.950, .965, .975, .985, .995, 1.000],
   };
   document.querySelectorAll('.stat-cell .val').forEach(el => {
     const lbl = el.closest('.stat-cell')?.querySelector('.lbl')?.textContent?.trim();
@@ -1123,9 +1124,9 @@ function gradeStats() {
     const reversed = ['ERA', 'WHIP'].includes(lbl);
     let grade;
     if (reversed) {
-      grade = val <= b[4] ? 'elite' : val <= b[3] ? 'good' : val <= b[2] ? 'avg' : val <= b[1] ? 'bad' : 'terrible';
+      grade = val <= b[5] ? 'legendary' : val <= b[4] ? 'elite' : val <= b[3] ? 'good' : val <= b[2] ? 'avg' : val <= b[1] ? 'bad' : 'terrible';
     } else {
-      grade = val >= b[4] ? 'elite' : val >= b[3] ? 'good' : val >= b[2] ? 'avg' : val >= b[1] ? 'bad' : 'terrible';
+      grade = val >= b[5] ? 'legendary' : val >= b[4] ? 'elite' : val >= b[3] ? 'good' : val >= b[2] ? 'avg' : val >= b[1] ? 'bad' : 'terrible';
     }
     el.setAttribute('data-grade', grade);
   });

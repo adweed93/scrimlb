@@ -1194,6 +1194,39 @@ async function loadGamePreview(gameId) {
     html += '</div>';
   }
 
+  // Weather
+  if (d.weather) {
+    html += `<div class="section-header">🌤️ Weather</div><div class="player-card" style="padding:12px 16px;display:flex;gap:16px;align-items:center">
+      <span style="font-size:24px">${d.weather.condition.includes('Rain')?'🌧️':d.weather.condition.includes('Cloud')?'☁️':d.weather.condition.includes('Clear')||d.weather.condition.includes('Sunny')?'☀️':'🌤️'}</span>
+      <div><div style="font-weight:600">${d.weather.condition} • ${Math.round(d.weather.temp_f)}°F</div>
+      <div style="font-size:11px;color:var(--muted)">Wind: ${d.weather.wind_mph} mph • Precip: ${d.weather.precip_in}"</div></div>
+    </div>`;
+  }
+
+  // Odds
+  if (d.odds) {
+    html += `<div class="section-header">📊 Odds</div><div class="player-card" style="padding:12px 16px">`;
+    if (typeof d.odds === 'object') {
+      html += `<pre style="font-size:11px;color:var(--text);margin:0">${JSON.stringify(d.odds, null, 2)}</pre>`;
+    }
+    html += '</div>';
+  }
+
+  // Injuries
+  if ((d.away_injuries && d.away_injuries.length) || (d.home_injuries && d.home_injuries.length)) {
+    html += '<div class="section-header">🏥 Injuries</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+    [[d.away_injuries, d.away, d.away_id], [d.home_injuries, d.home, d.home_id]].forEach(([inj, team, tid]) => {
+      if (inj && inj.length) {
+        html += `<div class="player-card" style="flex:1;min-width:160px"><div style="font-weight:600;padding:8px 12px;border-bottom:1px solid var(--border)">${teamLogo(tid,18)} ${team}</div>`;
+        inj.forEach(p => {
+          html += `<div style="padding:4px 12px;font-size:11px;border-bottom:1px solid var(--border)"><span style="color:var(--red)">●</span> ${p.name} <span style="color:var(--muted)">${p.status}</span></div>`;
+        });
+        html += '</div>';
+      }
+    });
+    html += '</div>';
+  }
+
   html += `<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadScores()">← Back to Scores</button></div>`;
   document.getElementById('stats-content').innerHTML = html;
 }

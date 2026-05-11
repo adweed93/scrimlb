@@ -1477,6 +1477,48 @@ def game_preview(game_id):
         except Exception:
             pass
 
+        # Injuries (IL players for both teams)
+        def get_injuries(team_id):
+            try:
+                roster = statsapi.get("team_roster", {"teamId": team_id, "rosterType": "fullRoster"})
+                il = []
+                for p in roster.get("roster", []):
+                    code = p.get("status", {}).get("code", "")
+                    if code in ("D7", "D10", "D15", "D60", "ILF", "RA"):
+                        il.append({"name": p["person"]["fullName"], "status": p["status"]["description"]})
+                return il
+            except Exception:
+                return []
+
+        away_injuries = get_injuries(away_id)
+        home_injuries = get_injuries(home_id)
+
+        # Weather (requires WEATHER_API_KEY env var)
+        weather = None
+        import os
+        weather_key = os.environ.get("WEATHER_API_KEY")
+        if weather_key and g.get("venue_name"):
+            try:
+                import requests as req
+                wr = req.get(f"http://api.weatherapi.com/v1/forecast.json?key={weather_key}&q={g['venue_name']}&days=1&aqi=no", timeout=3).json()
+                fc = wr.get("forecast", {}).get("forecastday", [{}])[0].get("day", {})
+                weather = {"temp_f": fc.get("avgtemp_f"), "condition": fc.get("condition", {}).get("text", ""),
+                           "wind_mph": fc.get("maxwind_mph"), "precip_in": fc.get("totalprecip_in", 0)}
+            except Exception:
+                pass
+
+        # Odds (requires PROP_ODDS_API_KEY env var)
+        odds = None
+        odds_key = os.environ.get("PROP_ODDS_API_KEY")
+        if odds_key:
+            try:
+                import requests as req
+                or_ = req.get(f"https://api.propoddsapi.com/beta/odds/mlb?api_key={odds_key}&game_id={game_id}", timeout=3).json()
+                if or_.get("odds"):
+                    odds = or_["odds"]
+            except Exception:
+                pass
+
         return jsonify({
             "available": True,
             "away": g["away_name"], "home": g["home_name"],
@@ -1488,6 +1530,10 @@ def game_preview(game_id):
             "away_lineup": away_lineup,
             "home_lineup": home_lineup,
             "series": series,
+            "away_injuries": away_injuries,
+            "home_injuries": home_injuries,
+            "weather": weather,
+            "odds": odds,
         })
     except Exception as e:
         return jsonify({"available": False, "error": str(e)})

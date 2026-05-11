@@ -433,3 +433,22 @@
 - Game preview: parallel data from schedule, roster, boxscore, ESPN, WeatherAPI
 - Scores nav: `_viewingHistory` flag controls auto-refresh behavior
 - `_upcomingCache` + `_upcomingCacheTs` for 10-min client cache of upcoming games
+
+
+### Enhancement: Crown for MLB Leaders
+- Rankings now check MLB-wide #1 in addition to league (AL/NL) top-15
+- 👑 Crown icon (blue highlight) for #1 in all of MLB
+- 🥇🥈🥉 Medals for #1/#2/#3 in their league
+- Crown appears both in Rankings section and next to stat value on dashboard
+- **Commit**: `1dc1375`
+
+### Fix: Counting Stat Color Thresholds
+- League leaders (like CJ Abrams #1 RBI) were only showing green, not blue
+- Problem: multipliers too conservative — average included bench/part-time players
+- Lowered elite/legendary thresholds for RBI, R, H so league leaders reach top tiers
+- RBI through 40G: elite=32+, legendary=38+ (was 38/53)
+- **Commit**: `4567f39`
+
+### Enhancement: Star/Favorite Button
+- Gold ☆ button on player dashboard header to quick-add to favorites
+- **Commit**: `8940d53`

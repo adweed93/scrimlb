@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
 <title>ScriMLB</title>
@@ -12,7 +12,7 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 60px; }
 
 /* Bottom Nav */
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #000; border-top: 1px solid var(--border); z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #000; border-top: 1px solid var(--border); z-index: 1000; padding-bottom: env(safe-area-inset-bottom); -webkit-transform: translateZ(0); transform: translateZ(0); }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 4px 6px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 9px; gap: 3px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 .nav-item.active { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
 .nav-item .icon { font-size: 20px; }
@@ -387,7 +387,7 @@ function gameCard(g, status) {
     </div>`;
   }
 
-  return `<div class="game-card" ${g.game_id && status!=='upcoming'?`onclick="loadBoxScore(${g.game_id})" style="cursor:pointer"`:''}> 
+  return `<div class="game-card" ${g.game_id?(status==='upcoming'?`onclick="loadGamePreview(${g.game_id})" style="cursor:pointer"`:`onclick="loadBoxScore(${g.game_id})" style="cursor:pointer"`):''}> 
     <div class="game-status"><span>${statusText}</span>${g.fav?'<span class="fav-badge">★ FAV</span>':''}</div>
     <div class="team-row">${teamLogo(g.away_id)}<span class="team-name">${g.away}</span><span class="team-score ${status==='final'?(awayWin?'winner':'loser'):''}">${status!=='upcoming'?g.away_score:''}</span></div>
     <div class="team-row">${teamLogo(g.home_id)}<span class="team-name">${g.home}</span><span class="team-score ${status==='final'?(homeWin?'winner':'loser'):''}">${status!=='upcoming'?g.home_score:''}</span></div>

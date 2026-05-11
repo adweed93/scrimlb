@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+    volumes:
+      - ./mlb_favorites.json:/app/mlb_favorites.json
+      - ./mlb_records_cache.json:/app/mlb_records_cache.json
+      - ./mlb_thresholds_cache.json:/app/mlb_thresholds_cache.json
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token eyJhIjoiN2Y0YzBmNTQ2ODIyZjZlNDE3MDA1NGM0ZWI1ZjNiYWQiLCJ0IjoiZDA1YTFhOTctODhjYi00NjVmLWE2ZjctNGQxZTg2MjVkMWU1IiwicyI6Ik56WTNNV0l5TkRJdE9HVTNZUzAwWTJJeUxUZzFOR010TVdVd05qTmtOekE1T1RJNCJ9
+    network_mode: "service:web"
+    depends_on:
+      - web
+    restart: unless-stopped

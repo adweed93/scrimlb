@@ -1135,10 +1135,20 @@ def player_live(player_id):
                 break
 
         if not live_game:
-            # Find next upcoming
+            # Find next upcoming game (look ahead 7 days)
             upcoming = [g for g in schedule if g["status"] not in ("Final", "In Progress")]
+            if not upcoming:
+                try:
+                    from datetime import date
+                    start = date.today() + timedelta(days=1)
+                    end = start + timedelta(days=6)
+                    future = statsapi.schedule(team=team_id, start_date=start.strftime("%m/%d/%Y"), end_date=end.strftime("%m/%d/%Y"))
+                    upcoming = [g for g in future if g["status"] not in ("Final", "In Progress")]
+                except Exception:
+                    pass
             if upcoming:
-                result["next_game"] = f"Next: {upcoming[0]['away_name']} @ {upcoming[0]['home_name']} — {upcoming[0]['game_date']}"
+                g = upcoming[0]
+                result["next_game"] = f"Next: {g['away_name']} @ {g['home_name']} — {g['game_date']}"
             return jsonify(result)
 
         result["playing"] = True
@@ -1155,26 +1165,38 @@ def player_live(player_id):
         # Get player's game stats from boxscore
         try:
             box = statsapi.boxscore_data(live_game["game_id"])
-            # Search both teams for the player
+            player_stats = {}
             for side in ["away", "home"]:
-                batters = box.get(side + "Batters", [])
-                for batter_id in batters:
-                    if batter_id == player_id:
-                        player_box = box.get(side + "BattingTotals", {}) if batter_id == "totals" else None
-                        # Get individual batter stats
-                        batter_data = box.get(side + "Batters", {})
+                for b in box.get(f"{side}Batters", []):
+                    if b.get("personId") == player_id:
+                        player_stats = {
+                            "atBats": b.get("ab", "0"),
+                            "runs": b.get("r", "0"),
+                            "hits": b.get("h", "0"),
+                            "rbi": b.get("rbi", "0"),
+                            "baseOnBalls": b.get("bb", "0"),
+                            "strikeOuts": b.get("k", "0"),
+                            "homeRuns": b.get("hr", "0"),
+                            "avg": b.get("avg", ""),
+                        }
                         break
-                pitchers = box.get(side + "Pitchers", [])
-                for pitcher_id in pitchers:
-                    if pitcher_id == player_id:
+                for p in box.get(f"{side}Pitchers", []):
+                    if p.get("personId") == player_id:
+                        player_stats = {
+                            "inningsPitched": p.get("ip", "0"),
+                            "hits": p.get("h", "0"),
+                            "runs": p.get("r", "0"),
+                            "earnedRuns": p.get("er", "0"),
+                            "baseOnBalls": p.get("bb", "0"),
+                            "strikeOuts": p.get("k", "0"),
+                            "homeRuns": p.get("hr", "0"),
+                            "era": p.get("era", ""),
+                        }
                         break
-
-            # Try gameLog for today's stats
-            game_log = statsapi.player_stat_data(player_id, type="gameLog")
-            if game_log.get("stats"):
-                gl = game_log["stats"][0].get("stats", {})
-                if gl:
-                    result["player_stats"] = gl
+                if player_stats:
+                    break
+            if player_stats:
+                result["player_stats"] = player_stats
         except Exception:
             pass
 

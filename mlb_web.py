@@ -36,6 +36,44 @@ FAVORITES_FILE = Path(__file__).parent / "mlb_favorites.json"
 LAST_RUN_FILE = Path(__file__).parent / "mlb_last_run.json"
 
 
+def _get_player_rankings(player_name, group, team_id=None):
+    """Find a player's current MLB/league rankings across key stats."""
+    # AL teams by ID
+    AL_TEAMS = {133,134,136,137,138,139,140,141,142,143,144,145,147,158,110}
+    NL_TEAMS = {109,112,113,114,115,116,117,118,119,120,121,135,143,146,158}
+    league_id = 103 if team_id in AL_TEAMS else 104 if team_id in NL_TEAMS else None
+    league_label = "AL" if league_id == 103 else "NL" if league_id == 104 else "MLB"
+    last_name = player_name.split()[-1]
+
+    rankings = []
+    if group == "hitting":
+        cats = [("homeRuns", "HR"), ("battingAverage", "AVG"), ("onBasePlusSlugging", "OPS"),
+                ("stolenBases", "SB"), ("rbi", "RBI"), ("runs", "R")]
+    else:
+        cats = [("earnedRunAverage", "ERA"), ("strikeouts", "K"),
+                ("wins", "W"), ("walksAndHitsPerInningPitched", "WHIP")]
+    try:
+        for cat, label in cats:
+            r = statsapi.league_leaders(cat, season=datetime.now().year, limit=30,
+                                        statGroup=group, leagueId=league_id)
+            if not r:
+                continue
+            for line in r.strip().split('\n'):
+                if last_name in line and line.strip() and not line.startswith('Rank'):
+                    parts = line.strip().split()
+                    try:
+                        rank = int(parts[0])
+                    except ValueError:
+                        continue
+                    val = parts[-1]
+                    if rank <= 15:
+                        rankings.append({"stat": label, "rank": rank, "value": val, "league": league_label})
+                    break
+    except Exception:
+        pass
+    return sorted(rankings, key=lambda x: x["rank"])
+
+
 def load_favorites():
     if FAVORITES_FILE.exists():
         return json.loads(FAVORITES_FILE.read_text())
@@ -380,72 +418,97 @@ def player_stats(player_id):
     # Always generate 2-3 insights regardless of anomaly thresholds
     insights = []
     if games > 5 and group == "hitting":
-        hr_pace = (int(stats.get("homeRuns", 0)) / games) * 162
-        hits_pace = (int(stats.get("hits", 0)) / games) * 162
-        rbi_pace = (int(stats.get("rbi", 0)) / games) * 162
-        sb_pace = (int(stats.get("stolenBases", 0)) / games) * 162
+        hr = int(stats.get("homeRuns", 0))
+        hits = int(stats.get("hits", 0))
+        rbi = int(stats.get("rbi", 0))
+        sb = int(stats.get("stolenBases", 0))
+        bb = int(stats.get("baseOnBalls", 0))
+        pa = int(stats.get("plateAppearances", 1) or 1)
         avg = float(stats.get("avg", "0") or "0")
         ops = float(stats.get("ops", "0") or "0")
-        k_rate = int(stats.get("strikeOuts", 0)) / int(stats.get("plateAppearances", 1) or 1) * 100
-        bb_rate = int(stats.get("baseOnBalls", 0)) / int(stats.get("plateAppearances", 1) or 1) * 100
+        slg = float(stats.get("slg", "0") or "0")
+        obp = float(stats.get("obp", "0") or "0")
+        k_rate = int(stats.get("strikeOuts", 0)) / pa * 100
+        bb_rate = bb / pa * 100
+        hr_pace = (hr / games) * 162
+        hr_per_pa = hr / pa if pa else 0
+        ab_per_hr = float(stats.get("atBatsPerHomeRun", "0") or "0")
 
-        if hr_pace >= 30:
-            insights.append({"msg": f"On pace for {int(hr_pace)} HR this season", "nugget": f"League average is ~22 HR/season. {'Top-10 power territory' if hr_pace >= 40 else 'Above-average power'}"})
-        elif hr_pace > 0:
-            insights.append({"msg": f"HR pace: {int(hr_pace)} over 162 games", "nugget": "The average full-time player hits about 15-20 HR per season"})
+        # Games-played context
+        if hr >= 10:
+            insights.append({"msg": f"{hr} HR in {games} games ({hr/games:.2f}/game)", "nugget": f"At this rate through {games} games, that's a {int(hr_pace)}-HR season. {'Elite power pace' if hr_pace >= 40 else 'Solid production'}"})
+        elif hr_pace >= 20:
+            insights.append({"msg": f"HR pace: {int(hr_pace)} over 162 games ({games} G played)", "nugget": f"Averaging a HR every {ab_per_hr:.0f} AB" if ab_per_hr > 0 else ""})
 
-        if avg >= 0.300:
-            insights.append({"msg": f"Batting .{int(avg*1000)} — .300 hitter", "nugget": "Only ~10-15 qualified hitters finish above .300 each year"})
-        elif avg >= 0.270:
-            insights.append({"msg": f"Batting .{int(avg*1000)} — above league average", "nugget": f"MLB average is typically around .245-.250"})
-        else:
-            insights.append({"msg": f"Batting .{int(avg*1000)}", "nugget": f"MLB average is around .245-.250. {'Slow start or slump' if avg < .220 else 'Near league average'}"})
+        # Per-PA efficiency
+        if hr_per_pa >= 0.05:
+            insights.append({"msg": f"HR on {hr_per_pa*100:.1f}% of PA — elite power frequency", "nugget": "The best power hitters typically homer on 4-6% of plate appearances"})
 
+        # OPS context with games played
         if ops >= 0.900:
-            insights.append({"msg": f"{ops:.3f} OPS — All-Star caliber", "nugget": "An .900+ OPS typically ranks in the top 15-20 in baseball"})
+            insights.append({"msg": f"{ops:.3f} OPS through {games} games — All-Star caliber", "nugget": f"OBP {obp:.3f} + SLG {slg:.3f}. Top-15 in baseball territory"})
         elif ops >= 0.750:
-            insights.append({"msg": f"{ops:.3f} OPS — solid contributor", "nugget": "League average OPS is around .710-.720"})
+            insights.append({"msg": f"{ops:.3f} OPS ({obp:.3f} OBP + {slg:.3f} SLG)", "nugget": "League average OPS is .710-.720"})
         else:
-            insights.append({"msg": f"{ops:.3f} OPS", "nugget": "League average OPS is around .710-.720"})
+            insights.append({"msg": f"{ops:.3f} OPS through {games} games", "nugget": f"League average is .710-.720. {'Small sample — could normalize' if games < 25 else 'Sustained slump'}"})
 
-        if k_rate <= 15:
-            insights.append({"msg": f"{k_rate:.1f}% K rate — elite contact", "nugget": "Only ~10 qualified hitters strike out less than 15% of the time"})
-        elif k_rate >= 30:
-            insights.append({"msg": f"{k_rate:.1f}% K rate — swing-and-miss heavy", "nugget": "League average K rate is around 22-23%"})
+        # K/BB ratio
+        k = int(stats.get("strikeOuts", 0))
+        if bb > 0:
+            k_bb = k / bb
+            if k_bb <= 1.5 and pa >= 50:
+                insights.append({"msg": f"{k_bb:.1f} K/BB ratio — elite discipline", "nugget": f"{k} K vs {bb} BB in {pa} PA. Only the best plate-discipline hitters stay below 2.0"})
+            elif k_bb >= 4.0 and pa >= 50:
+                insights.append({"msg": f"{k_bb:.1f} K/BB ratio — aggressive approach", "nugget": f"{k} K vs {bb} BB. Striking out 4x more than walking is swing-heavy"})
 
-        if bb_rate >= 12:
-            insights.append({"msg": f"{bb_rate:.1f}% walk rate — great eye", "nugget": "A 12%+ BB rate puts you among the most disciplined hitters in the game"})
+        # Speed context
+        if sb >= 5:
+            cs = int(stats.get("caughtStealing", 0))
+            success_rate = sb / (sb + cs) * 100 if (sb + cs) > 0 else 100
+            insights.append({"msg": f"{sb} SB in {games} games ({success_rate:.0f}% success)", "nugget": f"{'Elite efficiency' if success_rate >= 85 else 'Aggressive on the bases'} — pace for {int((sb/games)*162)} over a full season"})
 
-        if rbi_pace >= 100:
-            insights.append({"msg": f"On pace for {int(rbi_pace)} RBI", "nugget": "100+ RBI is the traditional benchmark for an elite run producer"})
+        # AVG with games context
+        if avg >= .300 and games >= 20:
+            insights.append({"msg": f"Batting .{int(avg*1000)} through {games} games", "nugget": "Only ~10-15 qualified hitters finish above .300 each year"})
+        elif avg < .220 and games >= 20:
+            insights.append({"msg": f"Batting .{int(avg*1000)} through {games} games", "nugget": f"{'Still early — could recover' if games < 40 else 'Extended slump territory'}"})
 
     elif games > 3 and group == "pitching":
         era = float(stats.get("era", "99") or "99")
+        k = int(stats.get("strikeOuts", 0))
         k9 = float(stats.get("strikeoutsPer9Inn", "0") or "0")
         whip = float(stats.get("whip", "99") or "99")
         bb9 = float(stats.get("walksPer9Inn", "0") or "0")
+        ip = float(stats.get("inningsPitched", "0") or "0")
+        gs = int(stats.get("gamesStarted", 0))
+        w = int(stats.get("wins", 0))
+        l = int(stats.get("losses", 0))
 
-        if era <= 3.50:
-            insights.append({"msg": f"{era:.2f} ERA — above average", "nugget": f"{'Ace-level' if era <= 2.80 else 'Front-of-rotation'} — league average ERA is around 4.00-4.20"})
+        # IP/start context
+        if gs > 0:
+            ip_per_start = ip / gs
+            insights.append({"msg": f"{era:.2f} ERA over {ip:.0f} IP ({gs} starts, {ip_per_start:.1f} IP/start)", "nugget": f"{'Deep into games — workhorse' if ip_per_start >= 6.0 else 'Moderate workload'} — league avg is ~5.3 IP/start"})
         else:
-            insights.append({"msg": f"{era:.2f} ERA", "nugget": "League average ERA is around 4.00-4.20"})
+            insights.append({"msg": f"{era:.2f} ERA over {ip:.0f} IP in {games} appearances", "nugget": "League average ERA is around 4.00-4.20"})
 
-        if k9 >= 9.0:
-            insights.append({"msg": f"{k9:.1f} K/9 — strikeout pitcher", "nugget": f"{'Dominant' if k9 >= 11 else 'Well above average'} — league average is around 8.5 K/9"})
-        else:
-            insights.append({"msg": f"{k9:.1f} K/9", "nugget": "League average is around 8.5 K/9"})
+        # K per game context
+        if gs > 0 and k > 0:
+            k_per_start = k / gs
+            insights.append({"msg": f"{k} K in {gs} starts ({k_per_start:.1f} K/start)", "nugget": f"{'Dominant strikeout stuff' if k_per_start >= 8 else 'Solid' if k_per_start >= 6 else 'Contact-oriented'} — {k9:.1f} K/9 rate"})
 
+        # WHIP with context
         if whip <= 1.20:
-            insights.append({"msg": f"{whip:.2f} WHIP", "nugget": f"{'Elite' if whip <= 1.0 else 'Strong'} — league average WHIP is around 1.30"})
-        else:
-            insights.append({"msg": f"{whip:.2f} WHIP", "nugget": "League average WHIP is around 1.30"})
+            insights.append({"msg": f"{whip:.2f} WHIP through {games} games", "nugget": f"{'Elite traffic control' if whip <= 1.0 else 'Above average'} — allowing {whip*9:.1f} baserunners per 9 IP"})
+        elif whip >= 1.40:
+            insights.append({"msg": f"{whip:.2f} WHIP — {whip*9:.1f} baserunners per 9 IP", "nugget": "League average WHIP is ~1.30. Above 1.40 means constant pressure"})
 
-        if bb9 <= 2.0:
-            insights.append({"msg": f"{bb9:.1f} BB/9 — pinpoint control", "nugget": "Walking fewer than 2 per 9 innings is elite command"})
+        # W-L with context
+        if (w + l) >= 3:
+            insights.append({"msg": f"{w}-{l} record, {era:.2f} ERA in {ip:.0f} IP", "nugget": "Wins don't always reflect performance" if era <= 3.50 and w < l else ""})
 
-    # Take top 3 insights (prefer ones not already covered by anomalies)
+    # Take top 4 insights (prefer ones not already covered by anomalies)
     anomaly_msgs = {a["msg"] for a in anomalies}
-    insights = [i for i in insights if i["msg"] not in anomaly_msgs][:3]
+    insights = [i for i in insights if i["msg"] not in anomaly_msgs][:4]
 
     # Bad stat anomalies — historically poor performances
     red_flags = []
@@ -502,8 +565,19 @@ def player_stats(player_id):
         elif hr9 >= 1.5 and games > 8:
             red_flags.append({"msg": f"{hr9:.1f} HR/9 — giving up too many long balls", "level": "bad", "nugget": "League average is ~1.2 HR/9. Above 1.5 means the ball is leaving the yard too often"})
 
+    # Get player's league rankings
+    player_name = info.get("first_name", "") + " " + info.get("last_name", "")
+    team_id_for_rank = None
+    try:
+        teams = statsapi.lookup_team(info.get("current_team", ""))
+        if teams:
+            team_id_for_rank = teams[0].get("id")
+    except Exception:
+        pass
+    rankings = _get_player_rankings(player_name, group, team_id_for_rank) if games > 10 else []
+
     return jsonify({
-        "name": info.get("first_name", "") + " " + info.get("last_name", ""),
+        "name": player_name,
         "position": info.get("position", ""),
         "team": info.get("current_team", ""),
         "stats": stats,
@@ -511,6 +585,7 @@ def player_stats(player_id):
         "red_flags": red_flags,
         "insights": insights,
         "comparisons": comparisons,
+        "rankings": rankings,
         "recent_games": recent_games[1:] if len(recent_games) > 1 else [],
         "last_game": recent_games[0].get("stats", {}) if recent_games and recent_games[0].get("type") == "latest" else {},
     })

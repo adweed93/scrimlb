@@ -599,6 +599,17 @@ async function loadPlayer(id) {
     });
   }
 
+  // League Rankings
+  if (d.rankings && d.rankings.length) {
+    html += '<div class="section-header">📊 League Rankings</div><div class="player-card" style="padding:12px 16px">';
+    d.rankings.forEach(r => {
+      const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : '•';
+      const highlight = r.rank <= 3 ? 'color:var(--gold);font-weight:700' : r.rank <= 5 ? 'color:var(--green);font-weight:600' : 'color:var(--text)';
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="${highlight}">${medal} #${r.rank} in ${r.league} — ${r.stat}</span><span style="color:var(--muted);font-size:12px">${r.value}</span></div>`;
+    });
+    html += '</div>';
+  }
+
   // Historical comparisons
   if (d.comparisons && d.comparisons.length) {
     html += '<div class="section-header">vs. Historical Records</div><div class="player-card">';

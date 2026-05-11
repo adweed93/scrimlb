@@ -246,8 +246,8 @@ function navBack() {
   else if (prev.type==='preview') loadGamePreview(prev.id);
   else if (prev.type==='past') { loadHistoricalGames().then(() => setTimeout(() => window.scrollTo(0, prev.scrollY||0), 100)); }
   else if (prev.type==='upcoming') { loadUpcomingFull().then(() => setTimeout(() => window.scrollTo(0, prev.scrollY||0), 100)); }
-  else if (prev.type==='today') { switchTab('scores'); loadScores(); }
-  else { switchTab('scores'); loadScores(); }
+  else if (prev.type==='today') { loadScores(); }
+  else { loadScores(); }
 }
 const backBtn = () => `<div style="padding:8px 16px"><button onclick="navBack()" style="background:none;border:none;color:var(--blue);font-size:13px;cursor:pointer;padding:0;font-weight:600">← Back</button></div>`;
 
@@ -1244,15 +1244,17 @@ async function loadFieldAndZone(gameId) {
 let _boxRefreshTimer = null;
 async function loadGamePreview(gameId) {
   window._viewingHistory = true;
-  if (window._lastScoresTab === 'past') navPush('past', null);
-  else if (window._lastScoresTab === 'upcoming') navPush('upcoming', null);
-  else if (window._lastScoresTab === 'today') navPush('today', null);
+  const lastEntry = _navHistory.length ? _navHistory[_navHistory.length-1] : null;
+  if (!lastEntry || (lastEntry.type !== 'past' && lastEntry.type !== 'upcoming' && lastEntry.type !== 'today')) {
+    if (window._lastScoresTab === 'past') navPush('past', null);
+    else if (window._lastScoresTab === 'upcoming') navPush('upcoming', null);
+    else navPush('today', null);
+  }
   navPush('preview', gameId);
-  switchTab('stats');
-  document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading preview...</div></div>';
+  document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading preview...</div></div>';
   const r = await fetch(`/api/game/${gameId}/preview`);
   const d = await r.json();
-  if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Preview unavailable</div></div>'; return; }
+  if (!d.available) { document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div>Preview unavailable</div></div>'; return; }
 
   const gt = d.game_time ? new Date(d.game_time).toLocaleString('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
   let html = backBtn() + `<div class="player-card"><div class="player-header" style="text-align:center">
@@ -1356,7 +1358,7 @@ async function loadGamePreview(gameId) {
     html += '</div>';
   }
 
-  document.getElementById('stats-content').innerHTML = html;
+  document.getElementById('scores-content').innerHTML = html;
 }
 
 async function loadBoxScore(gameId) {
@@ -1366,8 +1368,7 @@ async function loadBoxScore(gameId) {
   if (window._lastScoresTab === 'past') navPush('past', null);
   else if (window._lastScoresTab === 'upcoming') navPush('upcoming', null);
   navPush('box', gameId);
-  switchTab('stats');
-  document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
+  document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
   await renderBoxScore(gameId);
   // Only auto-refresh if game is live
   try {
@@ -1698,7 +1699,7 @@ function buildLinescoreTable(d) {
   let right = `<table style="border-collapse:collapse"><tr><td style="${h};${rowH}">R</td><td style="${h};${rowH}">H</td><td style="${h};${rowH}">E</td></tr>`;
   right += `<tr><td style="${c};font-weight:700;${rowH}">${lt.away.r}</td><td style="${c};${rowH}">${lt.away.h}</td><td style="${c};${rowH}">${lt.away.e}</td></tr>`;
   right += `<tr><td style="${c};font-weight:700;${rowH}">${lt.home.r}</td><td style="${c};${rowH}">${lt.home.h}</td><td style="${c};${rowH}">${lt.home.e}</td></tr></table>`;
-  return `<div style="display:flex;align-items:flex-start">${left}<div style="overflow-x:auto;flex:1">${mid}</div>${right}</div>`;
+  return `<div style="display:flex;align-items:flex-start;overflow-x:auto">${left}<div style="overflow-x:auto">${mid}</div>${right}</div>`;
 }
 
 function buildBattingTable(batters, teamId, teamName) {
@@ -1782,7 +1783,7 @@ async function renderBoxScore(gameId) {
   _boxGameId = gameId;
   const r = await fetch(`/api/game/${gameId}/boxscore`);
   const d = await r.json();
-  if (!d.available) { document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
+  if (!d.available) { document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
 
   let html = backBtn() + `<div style="padding:0 16px 12px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
   // Linescore container
@@ -1809,7 +1810,7 @@ async function renderBoxScore(gameId) {
   // External links
   html += `<div class="player-card" style="margin-top:8px"><a href="https://www.mlb.com/gameday/${gameId}" target="_blank" style="display:block;padding:12px 16px;color:var(--blue);text-decoration:none;font-weight:600;font-size:13px">View on MLB.com →</a></div>`;
 
-  document.getElementById('stats-content').innerHTML = html;
+  document.getElementById('scores-content').innerHTML = html;
 
   // Load at-bats (this also renders strike zone for selected ab)
   await loadAtBatScroller(gameId);

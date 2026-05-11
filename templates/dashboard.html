@@ -1360,7 +1360,11 @@ async function loadBoxScore(gameId) {
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading box score...</div></div>';
   await renderBoxScore(gameId);
-  _boxRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) refreshBoxScoreData(gameId); }, 6000);
+  // Only auto-refresh if game is live
+  try {
+    const lr = await fetch(`/api/game/${gameId}/live`).then(r=>r.json());
+    if (lr.available) _boxRefreshTimer = setInterval(() => { if (document.querySelector('#stats.active')) refreshBoxScoreData(gameId); }, 6000);
+  } catch(e) {}
 }
 
 function renderDiamond(runners, count) {

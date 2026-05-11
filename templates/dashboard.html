@@ -240,10 +240,12 @@ async function loadScores() {
   const d = await r.json();
   let html = '';
 
-  // Coming Up Next at top
-  html += '<div class="section-header">Coming Up Next</div><div id="upcoming-preview"><div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div></div>';
-  html += '<div id="upcoming-expand" style="text-align:center;padding:8px"><button class="pill-btn outline" onclick="document.getElementById(\'upcoming-full\').style.display=document.getElementById(\'upcoming-full\').style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent.includes(\'▼\')?\'▲ Hide Full Schedule\':\'▼ See All (2 Weeks)\'">▼ See All (2 Weeks)</button></div>';
-  html += '<div id="upcoming-full" style="display:none"><div class="empty-state"><div class="icon">⏳</div></div></div>';
+  const upcomingBlock = '<div class="section-header">Coming Up Next</div><div id="upcoming-preview"><div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div></div>' +
+    '<div id="upcoming-expand" style="text-align:center;padding:8px"><button class="pill-btn outline" onclick="document.getElementById(\'upcoming-full\').style.display=document.getElementById(\'upcoming-full\').style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent.includes(\'▼\')?\'▲ Hide Full Schedule\':\'▼ See All (2 Weeks)\'">▼ See All (2 Weeks)</button></div>' +
+    '<div id="upcoming-full" style="display:none"><div class="empty-state"><div class="icon">⏳</div></div></div>';
+
+  // If no live games, show Coming Up Next at top
+  if (!d.live.length) html += upcomingBlock;
 
   if (d.live.length) {
     html += '<div class="section-header">Live</div>';
@@ -258,6 +260,9 @@ async function loadScores() {
     d.final.forEach(g => { html += gameCard(g, 'final'); });
   }
   if (!d.live.length && !d.upcoming.length && !d.final.length) html += '<div class="empty-state"><div class="icon">📅</div><div class="title">No Games Today</div></div>';
+
+  // If live games exist, show Coming Up Next after today's games
+  if (d.live.length) html += upcomingBlock;
 
   html += '<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadHistoricalGames()">📅 Past 2 Weeks</button></div>';
   document.getElementById('scores-content').innerHTML = html;

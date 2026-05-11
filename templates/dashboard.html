@@ -1227,7 +1227,7 @@ async function loadGamePreview(gameId) {
     html += '</div>';
   }
 
-  html += `<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="loadScores()">← Back to Scores</button></div>`;
+  html += `<div style="padding:12px;text-align:center"><button class="pill-btn outline" onclick="switchTab('scores');loadScores()">← Back to Scores</button></div>`;
   document.getElementById('stats-content').innerHTML = html;
 }
 

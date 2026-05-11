@@ -1260,19 +1260,19 @@ async function loadGamePreview(gameId) {
     <div class="meta">${gt} • ${d.venue}</div></div></div>`;
 
   // Probable Pitchers
-  html += '<div class="section-header">Probable Pitchers</div><div class="player-card" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:16px">';
+  html += '<div class="section-header">Probable Pitchers</div><div class="player-card" style="display:flex;gap:12px;padding:16px">';
   [['away', d.away_pitcher, d.away], ['home', d.home_pitcher, d.home]].forEach(([side, p, team]) => {
     if (p) {
-      html += `<div style="flex:1;min-width:140px;text-align:center;padding:12px;border:1px solid var(--border);border-radius:8px">
+      html += `<div style="flex:1;text-align:center;padding:12px;border:1px solid var(--border);border-radius:8px">
         <div style="cursor:pointer" onclick="loadPlayer(${p.id})">${playerImg(p.id,40)}</div>
         <div style="font-weight:600;margin-top:6px;cursor:pointer" onclick="loadPlayer(${p.id})">${p.name}</div>
         <div style="font-size:11px;color:var(--muted)">${team}</div>
-        <div class="stat-row" style="margin-top:8px;justify-content:center">
-          <div class="stat-cell"><div class="val">${p.era}</div><div class="lbl">ERA</div></div>
-          <div class="stat-cell"><div class="val">${p.wins}-${p.losses}</div><div class="lbl">W-L</div></div>
-          <div class="stat-cell"><div class="val">${p.whip}</div><div class="lbl">WHIP</div></div>
-          <div class="stat-cell"><div class="val">${p.k}</div><div class="lbl">K</div></div>
-          <div class="stat-cell"><div class="val">${p.ip}</div><div class="lbl">IP</div></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px">
+          <div style="text-align:center"><div style="font-size:16px;font-weight:800;font-family:'SF Mono','Fira Code',monospace;color:#fff">${p.era}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">ERA</div></div>
+          <div style="text-align:center"><div style="font-size:16px;font-weight:800;font-family:'SF Mono','Fira Code',monospace;color:#fff">${p.wins}-${p.losses}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">W-L</div></div>
+          <div style="text-align:center"><div style="font-size:16px;font-weight:800;font-family:'SF Mono','Fira Code',monospace;color:#fff">${p.whip}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">WHIP</div></div>
+          <div style="text-align:center"><div style="font-size:16px;font-weight:800;font-family:'SF Mono','Fira Code',monospace;color:#fff">${p.k}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">K</div></div>
+          <div style="text-align:center"><div style="font-size:16px;font-weight:800;font-family:'SF Mono','Fira Code',monospace;color:#fff">${p.ip}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">IP</div></div>
         </div></div>`;
     }
   });

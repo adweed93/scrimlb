@@ -50,9 +50,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-se
 .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); }
 .stat-cell { padding: 14px 8px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
 .stat-cell:nth-child(3n) { border-right: none; }
-.stat-cell .val { font-size: 20px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--accent); }
+.stat-cell .val { font-size: 20px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: #fff; }
 .stat-cell .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 .stat-cell.highlight .val { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+body.color-stats .stat-cell .val[data-grade="elite"] { color: #00e676; }
+body.color-stats .stat-cell .val[data-grade="good"] { color: #69f0ae; }
+body.color-stats .stat-cell .val[data-grade="avg"] { color: #fff; }
+body.color-stats .stat-cell .val[data-grade="bad"] { color: #ff9800; }
+body.color-stats .stat-cell .val[data-grade="terrible"] { color: #f44336; }
 
 /* Record bar */
 .record-bar { display: flex; justify-content: space-around; padding: 12px; background: var(--card); border-radius: 6px; margin: 8px 12px; border: 1px solid var(--border); }
@@ -557,7 +562,7 @@ async function loadPlayer(id) {
     if (m) _medals[r.stat] = m;
   });
   const medal = (stat) => _medals[stat] ? `<span style="font-size:10px">${_medals[stat]}</span>` : '';
-  html += `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(id, 50)}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${d.team}</div></div></div>`;
+  html += `<div class="player-card"><div class="player-header" style="display:flex;align-items:center;gap:12px">${playerImg(id, 50)}<div><div class="name">${d.name}</div><div class="meta">${d.position} • ${d.team}</div></div><label style="margin-left:auto;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" onchange="document.body.classList.toggle('color-stats',this.checked);gradeStats()" style="width:14px;height:14px">Color</label></div>`;
 
   if (d.position !== 'P') {
     html += `<div class="stat-section-label">Slash Line</div><div class="stat-row">
@@ -1082,6 +1087,38 @@ async function loadDefense(playerId) {
   }
 
   document.getElementById('stats-content').innerHTML = html;
+}
+
+function gradeStats() {
+  // League average benchmarks (2026 approximations)
+  const benchmarks = {
+    'AVG': [.200, .230, .250, .290, .320],
+    'OBP': [.280, .310, .330, .370, .400],
+    'SLG': [.340, .380, .420, .500, .560],
+    'OPS': [.620, .680, .720, .820, .900],
+    'HR': [3, 8, 15, 25, 35],  // scaled to ~40 games
+    'RBI': [5, 15, 25, 40, 55],
+    'SB': [0, 2, 5, 12, 20],
+    'ERA': [5.50, 4.50, 3.80, 3.00, 2.20],  // reversed: lower is better
+    'WHIP': [1.60, 1.40, 1.25, 1.05, 0.90],  // reversed
+    'K/9': [5, 7, 8.5, 10.5, 12],
+    'FLD%': [.950, .965, .975, .985, .995],
+  };
+  document.querySelectorAll('.stat-cell .val').forEach(el => {
+    const lbl = el.closest('.stat-cell')?.querySelector('.lbl')?.textContent?.trim();
+    const b = benchmarks[lbl];
+    if (!b) return;
+    let val = parseFloat(el.textContent.replace(/[🥇🥈🥉]/g, ''));
+    if (isNaN(val)) return;
+    const reversed = ['ERA', 'WHIP'].includes(lbl);
+    let grade;
+    if (reversed) {
+      grade = val <= b[4] ? 'elite' : val <= b[3] ? 'good' : val <= b[2] ? 'avg' : val <= b[1] ? 'bad' : 'terrible';
+    } else {
+      grade = val >= b[4] ? 'elite' : val >= b[3] ? 'good' : val >= b[2] ? 'avg' : val >= b[1] ? 'bad' : 'terrible';
+    }
+    el.setAttribute('data-grade', grade);
+  });
 }
 
 function filterTabs(active) {

@@ -1350,14 +1350,11 @@ def game_boxscore(game_id):
         # Batting lines
         def parse_batters(side):
             batters = []
-            for pid in box.get(f"{side}Batters", []):
-                if pid == "totals":
-                    continue
-                b = box.get(f"{side}Batters", {}).get(str(pid))
-                if not b:
+            for b in box.get(f"{side}Batters", []):
+                if b.get("personId", 0) == 0:
                     continue
                 batters.append({
-                    "id": pid,
+                    "id": b["personId"],
                     "name": b.get("name", ""),
                     "pos": b.get("position", ""),
                     "ab": b.get("ab", ""),
@@ -1373,14 +1370,11 @@ def game_boxscore(game_id):
         # Pitching lines
         def parse_pitchers(side):
             pitchers = []
-            for pid in box.get(f"{side}Pitchers", []):
-                if pid == "totals":
-                    continue
-                p = box.get(f"{side}Pitchers", {}).get(str(pid))
-                if not p:
+            for p in box.get(f"{side}Pitchers", []):
+                if p.get("personId", 0) == 0:
                     continue
                 pitchers.append({
-                    "id": pid,
+                    "id": p["personId"],
                     "name": p.get("name", ""),
                     "ip": p.get("ip", ""),
                     "h": p.get("h", ""),

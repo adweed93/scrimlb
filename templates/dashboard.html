@@ -1738,9 +1738,10 @@ async function loadAtBatScroller(gameId) {
     const d = await r.json();
     if (!d.plays || !d.plays.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No play data available</div>'; return; }
     _boxAtBats = d.plays;
-    _boxAbIndex = d.plays.length - 1; // default to most recent
-    _lastAnimatedAbIndex = -1;
-    _lastAnimatedPitchCount = 0;
+    _boxAbIndex = d.plays.length - 1;
+    _showingLiveCard = true;
+    _lastAnimatedAbIndex = _boxAbIndex;
+    _lastAnimatedPitchCount = (d.plays[_boxAbIndex].pitch_sequence || []).length;
     el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;justify-content:center">
       <button id="ab-prev-btn" onclick="abNav(-1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">◀</button>
       <div id="ab-card-display" style="flex:1;max-width:300px"></div>

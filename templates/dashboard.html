@@ -1475,6 +1475,7 @@ let _boxAbIndex = -1;
 let _boxGameId = null;
 let _lastAnimatedAbIndex = -1;
 let _lastAnimatedPitchCount = 0;
+let _lastUserNavTime = 0;
 
 function abEventColor(ev) {
   const e = (ev||'').toLowerCase();
@@ -1639,6 +1640,7 @@ function abNav(dir) {
   const newIdx = Math.max(0, Math.min(_boxAtBats.length - 1, _boxAbIndex + dir));
   if (newIdx === _boxAbIndex) return;
   _boxAbIndex = newIdx;
+  _lastUserNavTime = Date.now();
   // For non-live at-bats, skip animation — show final state instantly
   if (_boxAbIndex < _boxAtBats.length - 1) {
     _lastAnimatedAbIndex = _boxAbIndex;
@@ -1652,6 +1654,7 @@ function abNav(dir) {
 function abGoLive() {
   if (_boxAbIndex >= _boxAtBats.length - 1) return;
   _boxAbIndex = _boxAtBats.length - 1;
+  _lastUserNavTime = 0;
   _lastAnimatedAbIndex = _boxAbIndex;
   _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
   renderSelectedAtBat();
@@ -1694,6 +1697,7 @@ function highlightInningNav() {
 
 function jumpToInning(idx) {
   _boxAbIndex = idx;
+  _lastUserNavTime = Date.now();
   _lastAnimatedAbIndex = _boxAbIndex;
   _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
   renderSelectedAtBat();
@@ -1805,7 +1809,7 @@ async function refreshBoxScoreData(gameId) {
     // Refresh at-bat data without resetting selection
     const pr = await fetch(`/api/game/${gameId}/plays`, {signal:sig}).then(r=>r.json()).catch(()=>null);
     if (pr && pr.plays && pr.plays.length) {
-      const wasAtEnd = _boxAbIndex === _boxAtBats.length - 1;
+      const wasAtEnd = _boxAbIndex === _boxAtBats.length - 1 && (Date.now() - _lastUserNavTime > 2000);
       const prevLen = _boxAtBats.length;
       _boxAtBats = pr.plays;
       if (wasAtEnd && pr.plays.length > prevLen) {

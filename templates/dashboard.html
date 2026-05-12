@@ -426,7 +426,8 @@ let _teamRefreshTimer = null;
 async function loadTeam(id) {
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
-  if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
+  if (_boxRefreshTimer) { clearTimeout(_boxRefreshTimer); _boxRefreshTimer = null; }
+  if (_boxAbortCtrl) { _boxAbortCtrl.abort(); _boxAbortCtrl = null; }
   navPush('team', id);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
@@ -543,7 +544,8 @@ async function loadPlayer(id) {
   _currentPlayerId = id;
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
-  if (_boxRefreshTimer) { clearInterval(_boxRefreshTimer); _boxRefreshTimer = null; }
+  if (_boxRefreshTimer) { clearTimeout(_boxRefreshTimer); _boxRefreshTimer = null; }
+  if (_boxAbortCtrl) { _boxAbortCtrl.abort(); _boxAbortCtrl = null; }
   navPush('player', id);
   switchTab('stats');
   document.getElementById('stats-content').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><div>Loading...</div></div>';
@@ -1242,6 +1244,7 @@ async function loadFieldAndZone(gameId) {
 
 // In-App Box Score
 let _boxRefreshTimer = null;
+let _boxAbortCtrl = null;
 async function loadGamePreview(gameId) {
   window._viewingHistory = true;
   const lastEntry = _navHistory.length ? _navHistory[_navHistory.length-1] : null;
@@ -1363,7 +1366,8 @@ async function loadGamePreview(gameId) {
 
 async function loadBoxScore(gameId) {
   window._viewingHistory = true;
-  if (_boxRefreshTimer) clearInterval(_boxRefreshTimer);
+  if (_boxRefreshTimer) { clearTimeout(_boxRefreshTimer); _boxRefreshTimer = null; }
+  if (_boxAbortCtrl) { _boxAbortCtrl.abort(); _boxAbortCtrl = null; }
   if (_liveRefreshTimer) { clearInterval(_liveRefreshTimer); _liveRefreshTimer = null; }
   if (_teamRefreshTimer) { clearInterval(_teamRefreshTimer); _teamRefreshTimer = null; }
   if (window._lastScoresTab === 'past') navPush('past', null);
@@ -1374,7 +1378,7 @@ async function loadBoxScore(gameId) {
   // Only auto-refresh if game is live
   try {
     const lr = await fetch(`/api/game/${gameId}/live`).then(r=>r.json());
-    if (lr.available) _boxRefreshTimer = setInterval(() => { if (document.querySelector('#scores.active') && window._viewingHistory) refreshBoxScoreData(gameId); }, 6000);
+    if (lr.available) { const scheduleBoxRefresh = () => { _boxRefreshTimer = setTimeout(async () => { if (!document.querySelector('#scores.active') || !window._viewingHistory) { _boxRefreshTimer = null; return; } await refreshBoxScoreData(gameId); scheduleBoxRefresh(); }, 6000); }; scheduleBoxRefresh(); }
   } catch(e) {}
 }
 
@@ -1743,10 +1747,13 @@ function renderLiveBatterCard(lr) {
 }
 
 async function refreshBoxScoreData(gameId) {
+  if (_boxAbortCtrl) _boxAbortCtrl.abort();
+  _boxAbortCtrl = new AbortController();
+  const sig = _boxAbortCtrl.signal;
   try {
     const [br, lr] = await Promise.all([
-      fetch(`/api/game/${gameId}/boxscore`).then(r=>r.json()),
-      fetch(`/api/game/${gameId}/live`).then(r=>r.json()).catch(()=>({available:false}))
+      fetch(`/api/game/${gameId}/boxscore`, {signal:sig}).then(r=>r.json()),
+      fetch(`/api/game/${gameId}/live`, {signal:sig}).then(r=>r.json()).catch(()=>({available:false}))
     ]);
     if (!br.available) return;
     // Update linescore
@@ -1765,7 +1772,14 @@ async function refreshBoxScoreData(gameId) {
         svg.querySelector('#base-2').setAttribute('fill', lr.runners.second?on:off);
         svg.querySelector('#base-3').setAttribute('fill', lr.runners.third?on:off);
       }
-      if (lr.count) renderAbCount(lr.count.balls||0, lr.count.strikes||0, lr.count.outs||0);
+      if (lr.count) {
+        renderAbCount(lr.count.balls||0, lr.count.strikes||0, lr.count.outs||0);
+        // New batter (0-0 count) — clear strike zone from previous AB
+        if (lr.count.balls === 0 && lr.count.strikes === 0) {
+          const zone = document.getElementById('ab-strike-zone');
+          if (zone && zone.querySelector('circle')) { zone.innerHTML = renderStrikeZone([], null); renderPitchLog([], null); }
+        }
+      }
       const matchupEl = document.getElementById('ab-matchup');
       if (matchupEl) matchupEl.innerHTML = `<span style="font-weight:600;color:var(--text)">${lr.batter||''}</span> <span style="color:var(--muted)">vs</span> <span style="color:var(--muted)">${lr.pitcher||''}</span>`;
     }
@@ -1773,17 +1787,23 @@ async function refreshBoxScoreData(gameId) {
     const tb = document.getElementById('box-tables');
     if (tb) tb.innerHTML = buildBattingTable(br.away_batters, br.away_id, br.away_team) + buildBattingTable(br.home_batters, br.home_id, br.home_team) + buildPitchingTable(br.away_pitchers, br.away_id, br.away_team) + buildPitchingTable(br.home_pitchers, br.home_id, br.home_team);
     // Refresh at-bat data without resetting selection
-    const pr = await fetch(`/api/game/${gameId}/plays`).then(r=>r.json()).catch(()=>null);
+    const pr = await fetch(`/api/game/${gameId}/plays`, {signal:sig}).then(r=>r.json()).catch(()=>null);
     if (pr && pr.plays && pr.plays.length) {
       const wasAtEnd = _boxAbIndex === _boxAtBats.length - 1;
       const prevLen = _boxAtBats.length;
       _boxAtBats = pr.plays;
       if (wasAtEnd && pr.plays.length > prevLen) {
-        // New at-bat appeared — advance and animate only the new one
+        // New at-bat appeared — clear visuals immediately, then animate
         _boxAbIndex = _boxAtBats.length - 1;
         _lastAnimatedAbIndex = -1;
         _lastAnimatedPitchCount = 0;
         if (_abAnimTimer) { clearInterval(_abAnimTimer); _abAnimTimer = null; }
+        const zone = document.getElementById('ab-strike-zone');
+        if (zone) zone.innerHTML = renderStrikeZone([], null);
+        renderAbCount(0, 0, 0);
+        renderPitchLog([], null);
+        const svg = document.getElementById('ab-diamond-svg');
+        if (svg) { svg.querySelector('#base-1').setAttribute('fill','#333'); svg.querySelector('#base-2').setAttribute('fill','#333'); svg.querySelector('#base-3').setAttribute('fill','#333'); }
         renderSelectedAtBat();
       } else if (wasAtEnd) {
         // Same at-bat but maybe new pitches
@@ -1858,7 +1878,14 @@ async function checkNotifs() { await fetch('/api/notifications'); loadNotifs(); 
 async function clearNotifs() { await fetch('/api/notifications/clear',{method:'POST'}); loadNotifs(); }
 
 // Auto-refresh
-setInterval(() => { if (document.querySelector('#scores.active') && !window._viewingHistory) loadScores(); }, 6000);
+let _scoresRefreshTimer = null;
+function scheduleScoresRefresh() {
+  _scoresRefreshTimer = setTimeout(async () => {
+    if (document.querySelector('#scores.active') && !window._viewingHistory) await loadScores();
+    scheduleScoresRefresh();
+  }, 6000);
+}
+scheduleScoresRefresh();
 loadScores();
 
 // Prefetch favorite players in background after initial load

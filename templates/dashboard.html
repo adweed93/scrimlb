@@ -1641,6 +1641,7 @@ function abNav(dir) {
   renderSelectedAtBat();
 }
 function abGoLive() {
+  if (_boxAbIndex >= _boxAtBats.length - 1) return;
   _boxAbIndex = _boxAtBats.length - 1;
   _lastAnimatedAbIndex = _boxAbIndex;
   _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;

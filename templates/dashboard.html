@@ -1829,7 +1829,7 @@ async function renderBoxScore(gameId) {
   const d = await r.json();
   if (!d.available) { document.getElementById('scores-content').innerHTML = '<div class="empty-state"><div>Box score unavailable</div></div>'; return; }
 
-  let html = backBtn() + `<div style="padding:0 16px 12px;font-size:11px;color:var(--muted)">Auto-refreshes every 6s</div>`;
+  let html = backBtn();
   // Linescore container
   html += `<div id="box-linescore" class="player-card" style="overflow-x:auto;min-height:80px;padding:8px">${buildLinescoreTable(d)}</div>`;
   // Live current batter card

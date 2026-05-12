@@ -179,8 +179,7 @@ body .stat-cell .val[data-grade="terrible"] { color: #f44336; }
 <div id="favorites" class="panel">
   <div class="header"><h1>Favorites</h1></div>
   <div class="search-container">
-    <div class="search-bar"><input id="search-input" placeholder="Search players or teams"></div>
-    <div class="search-btns"><button onclick="doSearch('player')">Search Players</button><button onclick="doSearch('team')">Search Teams</button></div>
+    <div class="search-bar"><input id="search-input" placeholder="Search players or teams" onkeydown="if(event.key==='Enter')doSearch()"></div>
   </div>
   <div id="search-results"></div>
   <div class="section-header">Your Teams</div>
@@ -211,8 +210,7 @@ body .stat-cell .val[data-grade="terrible"] { color: #f44336; }
 <div id="search" class="panel">
   <div class="header"><h1>Search</h1></div>
   <div class="search-container">
-    <div class="search-bar"><input id="global-search" placeholder="Search players or teams..." onkeydown="if(event.key==='Enter')globalSearch('player')"></div>
-    <div class="search-btns"><button onclick="globalSearch('player')">Players</button><button onclick="globalSearch('team')">Teams</button></div>
+    <div class="search-bar"><input id="global-search" placeholder="Search players or teams..." onkeydown="if(event.key==='Enter')globalSearch()"></div>
   </div>
   <div id="global-results"></div>
 </div>
@@ -398,16 +396,17 @@ async function loadFavorites() {
   ).join('') || '<div class="empty-state"><div>No players added yet</div></div>';
 }
 
-async function doSearch(type) {
+async function doSearch() {
   const q = document.getElementById('search-input').value;
   if (!q) return;
-  const r = await fetch(`/api/search/${type}?q=${encodeURIComponent(q)}`);
-  const d = await r.json();
-  document.getElementById('search-results').innerHTML = d.map(item =>
-    type==='player'
-      ? `<div class="list-item" onclick="addFav('player',${item.id},'${item.name.replace(/'/g,"\\'")}')"><span class="list-icon">👤</span><div class="list-text"><div class="primary">${item.name}</div><div class="secondary">${item.team}</div></div></div>`
-      : `<div class="list-item" onclick="addFav('team',${item.id},'${item.name.replace(/'/g,"\\'")}')"><span class="list-icon">🏟️</span><div class="list-text"><div class="primary">${item.name}</div></div></div>`
-  ).join('') || '<div class="empty-state"><div>No results found</div></div>';
+  const [players, teams] = await Promise.all([
+    fetch(`/api/search/player?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/search/team?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>[])
+  ]);
+  let html = '';
+  teams.forEach(t => { html += `<div class="list-item" onclick="addFav('team',${t.id},'${t.name.replace(/'/g,"\\'")}')"><span class="list-icon">🏟️</span><div class="list-text"><div class="primary">${t.name}</div></div></div>`; });
+  players.forEach(p => { html += `<div class="list-item" onclick="addFav('player',${p.id},'${p.name.replace(/'/g,"\\'")}')"><span class="list-icon">👤</span><div class="list-text"><div class="primary">${p.name}</div><div class="secondary">${p.team}</div></div></div>`; });
+  document.getElementById('search-results').innerHTML = html || '<div class="empty-state"><div>No results found</div></div>';
 }
 
 async function addFav(type, id, name) {
@@ -523,21 +522,18 @@ async function loadTeamRoster(teamId) {
 
 function loadTeamFull(id, name) { loadTeam(id); }
 
-async function globalSearch(type) {
+async function globalSearch() {
   const q = document.getElementById('global-search').value;
   if (!q) return;
   document.getElementById('global-results').innerHTML = '<div class="loading">Searching...</div>';
-  const r = await fetch(`/api/search/${type}?q=${encodeURIComponent(q)}`);
-  const d = await r.json();
-  if (type === 'player') {
-    document.getElementById('global-results').innerHTML = d.map(p =>
-      `<div class="list-item" onclick="loadPlayer(${p.id})">${playerImg(p.id, 36)}<div class="list-text" style="margin-left:10px"><div class="primary">${p.name}</div><div class="secondary">${p.team}</div></div></div>`
-    ).join('') || '<div class="empty-state"><div>No players found</div></div>';
-  } else {
-    document.getElementById('global-results').innerHTML = d.map(t =>
-      `<div class="list-item" onclick="loadTeamFull(${t.id},'${t.name.replace(/'/g,"\\'")}')"><span style="margin-right:10px">${teamLogo(t.id, 30)}</span><div class="list-text"><div class="primary">${t.name}</div></div></div>`
-    ).join('') || '<div class="empty-state"><div>No teams found</div></div>';
-  }
+  const [players, teams] = await Promise.all([
+    fetch(`/api/search/player?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/search/team?q=${encodeURIComponent(q)}`).then(r=>r.json()).catch(()=>[])
+  ]);
+  let html = '';
+  teams.forEach(t => { html += `<div class="list-item" onclick="loadTeamFull(${t.id},'${t.name.replace(/'/g,"\\'")}')"><span style="margin-right:10px">${teamLogo(t.id, 30)}</span><div class="list-text"><div class="primary">${t.name}</div></div></div>`; });
+  players.forEach(p => { html += `<div class="list-item" onclick="loadPlayer(${p.id})">${playerImg(p.id, 36)}<div class="list-text" style="margin-left:10px"><div class="primary">${p.name}</div><div class="secondary">${p.team}</div></div></div>`; });
+  document.getElementById('global-results').innerHTML = html || '<div class="empty-state"><div>No results found</div></div>';
 }
 
 async function loadPlayer(id) {

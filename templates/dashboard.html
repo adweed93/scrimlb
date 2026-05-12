@@ -1458,10 +1458,12 @@ function renderPitchLog(pitches, abEvent) {
     return c==='C'?'Str':c==='B'?'Ball':c==='*B'?'Ball':c==='S'?'Swg':c==='W'?'Swg':c==='Q'?'Swg':c==='F'?'Foul':c==='T'?'Tip':c==='L'?'Foul':c==='R'?'Foul':c==='X'||c==='D'||c==='E'?'Play':c==='H'?'HBP':c==='M'?'Bunt':c==='O'?'Foul':c==='P'?'Pitchout':c==='V'?'Auto Ball':'?';
   }
   let html = '<div style="width:fit-content;margin:0 auto">';
+  const pitchName = {FF:'4-Seam',SI:'Sinker',FC:'Cutter',SL:'Slider',CU:'Curve',CH:'Changeup',FS:'Splitter',KC:'Knuckle Curve',ST:'Sweeper',SV:'Slurve',KN:'Knuckle',EP:'Eephus',SC:'Screwball',CS:'Slow Curve',FA:'Fastball',FT:'2-Seam'};
   html += pitches.map((p, i) => {
     const color = pitchColor(p.call, p);
     const label = pitchLabel(p.call, i === pitches.length - 1);
-    return `<div style="display:grid;grid-template-columns:12px 24px 32px auto;gap:4px;font-size:10px;line-height:16px;${i===pitches.length-1?'font-weight:700':''}"><span style="color:${color}">${i+1}</span><span style="color:var(--text)">${p.type||'--'}</span><span style="color:var(--muted)">${p.speed||''}</span><span style="color:${color}">${label}</span></div>`;
+    const pn = pitchName[p.type] || p.type || '--';
+    return `<div style="display:grid;grid-template-columns:12px auto 32px auto;gap:4px;font-size:10px;line-height:16px;${i===pitches.length-1?'font-weight:700':''}"><span style="color:${color}">${i+1}</span><span style="color:var(--text)">${pn}</span><span style="color:var(--muted)">${p.speed||''}</span><span style="color:${color}">${label}</span></div>`;
   }).join('');
   html += '</div>';
   el.innerHTML = html;

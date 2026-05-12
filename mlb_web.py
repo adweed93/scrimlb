@@ -1841,9 +1841,32 @@ def game_live_feed(game_id):
         }
 
         # Current batter/pitcher
-        batter = offense.get("batter", {}).get("fullName", "")
+        batter_obj = offense.get("batter", {})
+        batter = batter_obj.get("fullName", "")
+        batter_id = batter_obj.get("id", 0)
         pitcher_info = linescore.get("defense", {}).get("pitcher", {})
         pitcher = pitcher_info.get("fullName", "")
+        pitcher_id = pitcher_info.get("id", 0)
+
+        # Batter's game stats from boxscore
+        batter_stats = {}
+        if batter_id:
+            try:
+                box_players = feed.get("liveData", {}).get("boxscore", {}).get("teams", {})
+                for side in ("away", "home"):
+                    p_data = box_players.get(side, {}).get("players", {}).get(f"ID{batter_id}", {})
+                    if p_data:
+                        bs = p_data.get("stats", {}).get("batting", {})
+                        if bs:
+                            batter_stats = {
+                                "ab": bs.get("atBats", 0), "h": bs.get("hits", 0),
+                                "r": bs.get("runs", 0), "rbi": bs.get("rbi", 0),
+                                "hr": bs.get("homeRuns", 0), "bb": bs.get("baseOnBalls", 0),
+                                "k": bs.get("strikeOuts", 0), "avg": bs.get("avg", ""),
+                            }
+                            break
+            except Exception:
+                pass
 
         # Last pitch location
         last_pitch = {}
@@ -1885,7 +1908,10 @@ def game_live_feed(game_id):
             "runners": runners,
             "count": count,
             "batter": batter,
+            "batter_id": batter_id,
             "pitcher": pitcher,
+            "pitcher_id": pitcher_id,
+            "batter_stats": batter_stats,
             "inning": inning,
             "inning_half": inning_half,
             "last_pitch": last_pitch,

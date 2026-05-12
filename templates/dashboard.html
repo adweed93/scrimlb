@@ -1455,7 +1455,7 @@ function renderPitchLog(pitches, abEvent) {
   }
   function pitchLabel(c, isLast) {
     if ((c==='X'||c==='D'||c==='E') && isLast && abEvent) return abEvent;
-    return c==='C'?'Str':c==='B'?'Ball':c==='*B'?'Ball':c==='S'?'Swg':c==='F'?'Foul':c==='T'?'Tip':c==='X'||c==='D'||c==='E'?'Play':c==='H'?'HBP':c==='M'?'Bunt':c==='O'?'Foul':c||'?';
+    return c==='C'?'Str':c==='B'?'Ball':c==='*B'?'Ball':c==='S'?'Swg':c==='W'?'Swg':c==='Q'?'Swg':c==='F'?'Foul':c==='T'?'Tip':c==='L'?'Foul':c==='R'?'Foul':c==='X'||c==='D'||c==='E'?'Play':c==='H'?'HBP':c==='M'?'Bunt':c==='O'?'Foul':c==='P'?'Pitchout':c==='V'?'Auto Ball':'?';
   }
   let html = '<div style="width:fit-content;margin:0 auto">';
   html += pitches.map((p, i) => {

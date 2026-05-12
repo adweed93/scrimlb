@@ -1713,21 +1713,17 @@ function buildLinescoreTable(d) {
   const h = 'padding:4px 6px;border:1px solid var(--border);text-align:center;font-size:10px;color:var(--muted);font-weight:600;min-width:22px';
   const t = 'padding:4px 6px;border:1px solid var(--border);text-align:left;font-size:11px;font-weight:600;white-space:nowrap';
   const rowH = 'height:26px';
-  // Left: team names
-  let left = `<table style="border-collapse:collapse"><tr><td style="${h};${rowH}">&nbsp;</td></tr><tr><td style="${t};${rowH}">${teamLogo(d.away_id,20)}</td></tr><tr><td style="${t};${rowH}">${teamLogo(d.home_id,20)}</td></tr></table>`;
-  // Middle: innings (scrollable)
-  let mid = '<table style="border-collapse:collapse"><tr>';
-  lt.innings.forEach(inn => { mid += `<td style="${h};${rowH}">${inn.num}</td>`; });
-  mid += '</tr><tr>';
-  lt.innings.forEach(inn => { mid += `<td style="${c};${rowH}">${inn.away!==''?inn.away:'-'}</td>`; });
-  mid += '</tr><tr>';
-  lt.innings.forEach(inn => { mid += `<td style="${c};${rowH}">${inn.home!==''?inn.home:'-'}</td>`; });
-  mid += '</tr></table>';
-  // Right: R/H/E
-  let right = `<table style="border-collapse:collapse"><tr><td style="${h};${rowH}">R</td><td style="${h};${rowH}">H</td><td style="${h};${rowH}">E</td></tr>`;
-  right += `<tr><td style="${c};font-weight:700;${rowH}">${lt.away.r}</td><td style="${c};${rowH}">${lt.away.h}</td><td style="${c};${rowH}">${lt.away.e}</td></tr>`;
-  right += `<tr><td style="${c};font-weight:700;${rowH}">${lt.home.r}</td><td style="${c};${rowH}">${lt.home.h}</td><td style="${c};${rowH}">${lt.home.e}</td></tr></table>`;
-  return `<div style="display:flex;align-items:flex-start;overflow-x:auto">${left}<div style="overflow-x:auto">${mid}</div>${right}</div>`;
+  let tbl = '<table style="border-collapse:collapse;width:100%"><tr>';
+  tbl += `<td style="${h};${rowH}">&nbsp;</td>`;
+  lt.innings.forEach(inn => { tbl += `<td style="${h};${rowH}">${inn.num}</td>`; });
+  tbl += `<td style="${h};${rowH}">R</td><td style="${h};${rowH}">H</td><td style="${h};${rowH}">E</td></tr>`;
+  tbl += `<tr><td style="${t};${rowH}">${teamLogo(d.away_id,20)}</td>`;
+  lt.innings.forEach(inn => { tbl += `<td style="${c};${rowH}">${inn.away!==''?inn.away:'-'}</td>`; });
+  tbl += `<td style="${c};font-weight:700;${rowH}">${lt.away.r}</td><td style="${c};${rowH}">${lt.away.h}</td><td style="${c};${rowH}">${lt.away.e}</td></tr>`;
+  tbl += `<tr><td style="${t};${rowH}">${teamLogo(d.home_id,20)}</td>`;
+  lt.innings.forEach(inn => { tbl += `<td style="${c};${rowH}">${inn.home!==''?inn.home:'-'}</td>`; });
+  tbl += `<td style="${c};font-weight:700;${rowH}">${lt.home.r}</td><td style="${c};${rowH}">${lt.home.h}</td><td style="${c};${rowH}">${lt.home.e}</td></tr></table>`;
+  return tbl;
 }
 
 function buildBattingTable(batters, teamId, teamName) {

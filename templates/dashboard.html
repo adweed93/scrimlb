@@ -1637,11 +1637,16 @@ function renderSelectedAtBat() {
 function abNav(dir) {
   if (!_boxAtBats.length) return;
   const newIdx = Math.max(0, Math.min(_boxAtBats.length - 1, _boxAbIndex + dir));
-  if (newIdx !== _boxAbIndex) {
+  if (newIdx === _boxAbIndex) return;
+  _boxAbIndex = newIdx;
+  // For non-live at-bats, skip animation — show final state instantly
+  if (_boxAbIndex < _boxAtBats.length - 1) {
+    _lastAnimatedAbIndex = _boxAbIndex;
+    _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
+  } else {
     _lastAnimatedAbIndex = -1;
     _lastAnimatedPitchCount = 0;
   }
-  _boxAbIndex = newIdx;
   renderSelectedAtBat();
 }
 function abGoLive() {
@@ -1684,8 +1689,8 @@ function highlightInningNav() {
 
 function jumpToInning(idx) {
   _boxAbIndex = idx;
-  _lastAnimatedAbIndex = -1;
-  _lastAnimatedPitchCount = 0;
+  _lastAnimatedAbIndex = _boxAbIndex;
+  _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
   renderSelectedAtBat();
 }
 

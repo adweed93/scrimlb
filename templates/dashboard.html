@@ -1534,6 +1534,8 @@ function renderSelectedAtBat() {
     <div style="display:flex;gap:3px;margin-top:6px;align-items:center">${pitchDots}<span style="font-size:9px;color:var(--muted);margin-left:4px">${ab.pitches}P</span></div>
   </div>`;
   if (counter) counter.textContent = `${_boxAbIndex+1} / ${_boxAtBats.length}`;
+  const liveBtn = document.getElementById('ab-live-btn');
+  if (liveBtn) liveBtn.style.display = _boxAbIndex < _boxAtBats.length - 1 ? 'block' : 'none';
   highlightInningNav();
 
   // Setup diamond with BSO if present
@@ -1632,6 +1634,12 @@ function abNav(dir) {
   _boxAbIndex = newIdx;
   renderSelectedAtBat();
 }
+function abGoLive() {
+  _boxAbIndex = _boxAtBats.length - 1;
+  _lastAnimatedAbIndex = _boxAbIndex;
+  _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
+  renderSelectedAtBat();
+}
 
 function buildInningNav() {
   const nav = document.getElementById('ab-inning-nav');
@@ -1687,6 +1695,7 @@ async function loadAtBatScroller(gameId) {
       <button onclick="abNav(1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">▶</button>
     </div>
     <div id="ab-counter" style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px"></div>
+    <div id="ab-live-btn" style="text-align:center;margin-top:6px;display:none"><button onclick="abGoLive()" style="background:var(--red);color:#fff;border:none;border-radius:12px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer">● LIVE</button></div>
     <div id="ab-inning-nav" style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:6px"></div>`;
     buildInningNav();
     renderSelectedAtBat();

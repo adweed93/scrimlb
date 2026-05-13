@@ -1814,7 +1814,7 @@ function highlightInningNav() {
     el.style.color = active ? '#000' : 'var(--muted)';
     el.style.fontWeight = active ? '700' : '400';
     el.style.background = active ? 'var(--green)' : 'none';
-    el.style.transform = active ? 'scale(1.15)' : 'scale(0.9)';
+    el.style.transform = '';
   });
   const activeEl = track.querySelector(`span[data-widx="${activeIdx}"]`);
   if (activeEl) {

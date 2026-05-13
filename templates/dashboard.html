@@ -1784,7 +1784,7 @@ function highlightInningNav() {
   });
   nav.innerHTML = innings.map(inn => {
     const active = inn.key === key;
-    return `<span data-inn="${inn.key}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;font-size:11px;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:12px;color:${active?'#000':'var(--muted)'};font-weight:${active?'700':'400'};background:${active?'var(--green)':'none'}">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
+    return `<span data-inn="${inn.key}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;font-size:10px;padding:3px 5px;white-space:nowrap;flex-shrink:0;border-radius:10px;color:${active?'#000':'var(--muted)'};font-weight:${active?'700':'400'};background:${active?'var(--green)':'none'}">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
   }).join('');
   const activeEl = nav.querySelector(`span[data-inn="${key}"]`);
   if (activeEl) {

@@ -1442,8 +1442,8 @@ function renderStrikeZone(pitches, lastPitch, batSide) {
   });
   // Batter silhouette (catcher's view: R=left side, L=right side)
   const isLeft = batSide === 'L';
-  const bx = isLeft ? zoneR + 8 : zoneL - 22;
-  const batterSvg = batSide ? `<g opacity="0.2" transform="translate(${bx},${zoneT-5})${isLeft?' scale(-1,1) translate(-14,0)':''}"><path d="M7,0 A4,4 0 1,1 7,8 A4,4 0 1,1 7,0 M7,10 L7,32 M2,18 L12,18 M7,32 L3,48 M7,32 L11,48" stroke="#fff" stroke-width="1.5" fill="none"/><path d="M${isLeft?'2':'12'},16 L${isLeft?'-4':'18'},8 L${isLeft?'-2':'16'},5" stroke="#fff" stroke-width="1.5" fill="none"/></g>` : '';
+  const bx = isLeft ? zoneR + 4 : zoneL - 28;
+  const batterSvg = batSide ? `<g opacity="0.18" transform="translate(${bx},${zoneT - 10})${isLeft ? ' scale(-1,1) translate(-24,0)' : ''}"><path d="M12,0 A5,5.5 0 1,1 12,11 A5,5.5 0 1,1 12,0 M10,12 C8,14 6,18 5,22 C4,26 4,30 5,34 C6,38 7,42 6,46 C5,50 4,54 3,58 L7,58 C8,54 9,50 10,46 C11,42 12,38 12,34 C12,38 13,42 14,46 C15,50 16,54 17,58 L21,58 C20,54 19,50 18,46 C17,42 16,38 15,34 C14,30 14,26 14,22 C14,18 13,14 12,12 M6,18 C4,17 2,16 1,14 M14,18 C14,16 15,14 16,12 L18,8 L22,2 L24,0" fill="#fff" stroke="none"/></g>` : '';
   return `<div style="display:flex;flex-direction:column;align-items:center">
     <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
       ${batterSvg}

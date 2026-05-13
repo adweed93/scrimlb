@@ -1649,7 +1649,7 @@ function renderSelectedAtBat() {
 let _showingLiveCard = false;
 function abNav(dir) {
   if (!_boxAtBats.length) return;
-  // If live card is showing and user presses back, just show the last completed AB
+  // If live card is showing and user presses back, show the previous completed AB
   if (_showingLiveCard && dir === -1) {
     _showingLiveCard = false;
     _lastUserNavTime = Date.now();

@@ -1768,6 +1768,8 @@ def game_plays(game_id):
             matchup = play.get("matchup", {})
             if not result.get("description"):
                 continue
+            if not about.get("isComplete", False):
+                continue
             events = play.get("playEvents", [])
             pitches = []
             for ev in events:

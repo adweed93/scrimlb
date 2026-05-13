@@ -1674,6 +1674,19 @@ function abNav(dir) {
     return;
   }
   if (newIdx === _boxAbIndex) return;
+  // If navigating forward to last AB and it matches live batter, skip to live
+  if (dir === 1 && newIdx === _boxAtBats.length - 1) {
+    const liveEl = document.getElementById('box-live-batter');
+    if (liveEl && liveEl.dataset.batterId === String(_boxAtBats[newIdx].batter_id)) {
+      _boxAbIndex = newIdx;
+      _showingLiveCard = true;
+      _lastUserNavTime = 0;
+      _lastAnimatedAbIndex = _boxAbIndex;
+      _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
+      renderSelectedAtBat();
+      return;
+    }
+  }
   _boxAbIndex = newIdx;
   _showingLiveCard = false;
   _lastUserNavTime = Date.now();

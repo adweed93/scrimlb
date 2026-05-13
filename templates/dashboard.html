@@ -1416,7 +1416,7 @@ function renderDiamond(runners, count) {
 }
 
 function renderStrikeZone(pitches, lastPitch, batSide) {
-  const w = 200, h = 200, pad = 40;
+  const w = 260, h = 260, pad = 50;
   // Strike zone: 17" plate = -0.708 to 0.708 ft, typical height 1.6-3.4 ft
   const zoneXMin = -0.708, zoneXMax = 0.708;
   const zoneYMin = 1.6, zoneYMax = 3.4;
@@ -1954,7 +1954,7 @@ async function renderBoxScore(gameId) {
   html += `<div id="ab-matchup" style="text-align:center;font-size:11px;margin-bottom:8px;height:16px"><span style="font-weight:600;color:var(--text)"></span></div>`;
   html += `<div style="display:flex;align-items:center;justify-content:center;gap:16px">`;
   html += `<div id="box-diamond" style="width:100px;height:105px"></div>`;
-  html += `<div id="ab-strike-zone" style="width:200px;height:210px"></div>`;
+  html += `<div id="ab-strike-zone" style="width:260px;height:270px"></div>`;
   html += `</div>`;
   html += `<div id="ab-pitch-log" style="height:80px;overflow-y:auto;padding:6px 12px;border-top:1px solid var(--border);margin-top:8px;font-family:'SF Mono','Fira Code',monospace;display:flex;flex-direction:column;align-items:center"></div>`;
   html += `<div id="ab-replay-btn" onclick="abReplay()" style="position:absolute;bottom:10px;left:12px;font-size:9px;font-weight:700;cursor:pointer;padding:3px 8px;border-radius:10px;background:#333;color:var(--text);border:1px solid var(--border)">▶ Replay</div>`;

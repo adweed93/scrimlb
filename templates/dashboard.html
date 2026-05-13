@@ -1562,7 +1562,10 @@ function renderSelectedAtBat() {
   const prevBtn = document.getElementById('ab-prev-btn');
   const nextBtn = document.getElementById('ab-next-btn');
   if (prevBtn) prevBtn.style.visibility = _boxAbIndex <= 0 ? 'hidden' : 'visible';
-  if (nextBtn) nextBtn.style.visibility = (_boxAbIndex >= _boxAtBats.length - 1 && _showingLiveCard) ? 'hidden' : 'visible';
+  if (nextBtn) {
+    const atEnd = _boxAbIndex >= _boxAtBats.length - 1;
+    nextBtn.style.visibility = atEnd && (!_liveBatterId || _showingLiveCard) ? 'hidden' : 'visible';
+  }
   highlightInningNav();
 
   // Setup diamond with BSO if present

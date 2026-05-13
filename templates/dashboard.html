@@ -1774,14 +1774,15 @@ function highlightInningNav() {
   if (!nav || !_boxAtBats.length) return;
   const ab = _boxAtBats[_boxAbIndex];
   const key = ab.half + ab.inning;
+  let activeEl = null;
   nav.querySelectorAll('span[data-inn]').forEach(el => {
     const active = el.dataset.inn === key;
-    el.style.color = active ? 'var(--green)' : 'var(--muted)';
+    el.style.color = active ? '#000' : 'var(--muted)';
     el.style.fontWeight = active ? '700' : '400';
-    el.style.background = active ? 'rgba(0,255,135,0.1)' : 'none';
-    if (active) el.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
-    el.style.fontWeight = el.dataset.inn === key ? '700' : '400';
+    el.style.background = active ? 'var(--green)' : 'none';
+    if (active) activeEl = el;
   });
+  if (activeEl) activeEl.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
 }
 
 function jumpToInning(idx) {

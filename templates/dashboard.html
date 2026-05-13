@@ -1479,6 +1479,7 @@ let _boxGameId = null;
 let _lastAnimatedAbIndex = -1;
 let _lastAnimatedPitchCount = 0;
 let _lastUserNavTime = 0;
+let _liveBatterId = null;
 
 function abEventColor(ev) {
   const e = (ev||'').toLowerCase();
@@ -1654,8 +1655,10 @@ function abNav(dir) {
   if (_showingLiveCard && dir === -1) {
     _showingLiveCard = false;
     _lastUserNavTime = Date.now();
-    // Go to second-to-last AB since the last one was just shown as the live card
-    if (_boxAbIndex > 0) _boxAbIndex--;
+    // Skip back one extra if last completed AB is same batter as live
+    if (_liveBatterId && _boxAtBats[_boxAbIndex] && _boxAtBats[_boxAbIndex].batter_id === _liveBatterId && _boxAbIndex > 0) {
+      _boxAbIndex--;
+    }
     _lastAnimatedAbIndex = _boxAbIndex;
     _lastAnimatedPitchCount = (_boxAtBats[_boxAbIndex].pitch_sequence || []).length;
     renderSelectedAtBat();
@@ -1672,8 +1675,7 @@ function abNav(dir) {
   if (newIdx === _boxAbIndex) return;
   // If navigating forward to last AB and it matches live batter, skip to live
   if (dir === 1 && newIdx === _boxAtBats.length - 1) {
-    const liveEl = document.getElementById('box-live-batter');
-    if (liveEl && liveEl.dataset.batterId === String(_boxAtBats[newIdx].batter_id)) {
+    if (_liveBatterId && _boxAtBats[newIdx].batter_id === _liveBatterId) {
       _boxAbIndex = newIdx;
       _showingLiveCard = true;
       _lastUserNavTime = 0;
@@ -1827,6 +1829,7 @@ function buildPitchingTable(pitchers, teamId, teamName) {
 function renderLiveBatterCard(lr) {
   const el = document.getElementById('box-live-batter');
   if (!el || !lr.available || !lr.batter_id) { if (el) el.style.display='none'; return; }
+  _liveBatterId = lr.batter_id;
   const s = lr.batter_stats || {};
   const statLine = s.ab !== undefined ? `${s.h}-${s.ab}, ${s.r} R, ${s.rbi} RBI${s.hr?' | '+s.hr+' HR':''}${s.bb?' | '+s.bb+' BB':''}${s.k?' | '+s.k+' K':''}` : '';
   el.style.display = 'block';

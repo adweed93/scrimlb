@@ -615,3 +615,60 @@
 ### Known Issues
 - Weather not showing on game previews (WEATHER_API_KEY not set in Docker env)
 - Favorites still use JSON file (ephemeral in Docker without volume — currently mounted)
+
+
+## Session: May 12, 2026 (Evening)
+
+### Deployment Setup
+- **Docker is the active deployment method** — always use `docker compose down; docker compose build web; docker compose up -d`
+- **NEVER** use `docker compose up -d --build web` alone — tunnel uses `network_mode: "service:web"` and loses network when only web is recreated
+- Container: `scrimlb-web-1` (Flask/gunicorn) + `scrimlb-tunnel-1` (Cloudflare)
+
+### Bug Fixes
+- **HBP display**: Orange color (#ff9800) for HBP pitches in all views (dots, pitch log, strike zone)
+- **Foul with 2 strikes (yellow)**: Fixed logic — only yellow when BOTH current AND previous pitch have strikes >= 2 (foul that didn't advance count)
+- **Live endpoint for finished games**: Returns `available: false` when `abstractGameState === "Final"`
+- **Game Over status**: Added "Game Over" and "Completed Early" as valid final statuses in scores/history endpoints
+- **Past game box score**: `_showingLiveCard = false` on initial load; LIVE button hidden; right arrow hidden on last AB
+- **Live state persistence**: Fixed `_showingLiveCard` being reset to false when no pitches yet between at-bats
+- **Duplicate batter on nav**: Uses `_liveBatterId` (tracked from API) to skip duplicate when navigating forward/back
+- **Only completed at-bats in plays**: Added `about.get("isComplete", False)` filter
+- **Pitch log alignment**: Fixed with monospace font, fixed grid columns (14px 50px 38px 56px), left-aligned speed
+
+### Features Added
+- **Batter silhouette images**: PNG images (`static/batter_left.png`, `static/batter_right.png`) with team-colored jerseys via CSS `hue-rotate`
+- **Team jersey colors**: Hardcoded `_teamJersey` map with hue/saturation for all 30 teams (home/away)
+- **Bat side from API**: `matchup.batSide.code` added to both `/api/game/<id>/plays` and `/api/game/<id>/live` endpoints
+- **Home plate SVG**: Pentagon below strike zone, proportional width, muted gray (#888, 50% opacity)
+- **Strike zone accuracy**: Proper coordinate mapping (zone: -0.708 to 0.708 ft wide, 1.6-3.4 ft tall; view: -2.0 to 2.0, 0.5-4.5)
+- **Diamond in at-bat card**: Moved from separate element to right side of the play-by-play card (both completed and live views)
+- **Inning wheel picker**: Horizontal scroll-snap wheel with centered selection, mouse wheel support, fade edges, wraps around
+- **Shortened event names**: Groundout→GrdOut, Strikeout→K, Flyout→FlyOut, etc. in pitch log
+- **Shortened pitch names**: Sweeper→Sweep, Changeup→Change, Splitter→Split, etc.
+- **Str→Strike** in pitch log labels
+- **Replay button**: Moved to bottom-left with ↺ icon
+- **LIVE button**: Moved to bottom-right
+
+### Layout Changes
+- Strike zone SVG: 260×260 with 50px padding
+- Batter image: 95% height of container, positioned left (righty) or right (lefty)
+- Diamond below zone removed → now inside at-bat card on right side
+- Pitch log: 60px fixed height with scroll, below zone
+- Inning nav: scroll-snap horizontal wheel (replaced grid)
+- Removed "At-Bat Play-by-Play" header text
+- Removed strike zone legend
+
+### Architecture Notes
+- `window._batterHue` / `window._batterSat` set before each renderStrikeZone call
+- `window._boxAwayId` / `window._boxHomeId` stored from box score response
+- `window._liveBatterId` tracked from live API for duplicate detection
+- `window._innWheel` stores inning list for wheel navigation
+- `window._pitchLogSide` removed (reverted side layout)
+
+
+### Additional Changes (Late Night)
+- **Live score in card**: Added `away_score`, `home_score`, `away_abbr`, `home_abbr` to `/api/game/<id>/live` endpoint; displayed below diamond in live card
+- **Home plate position**: Moved up 10px for better alignment with batter feet
+- **Batter opacity**: Increased to 0.6
+- **Inning wheel fixes**: Rebuilt HTML on each highlight (fixes iOS double-highlight), removed `scrollIntoView` (caused page shift), replaced with manual `scrollLeft`, removed scale transforms (caused black rectangle artifact)
+- **Page shift fix**: Removed `overflow:visible` from card and zone containers that was causing horizontal page scroll on mobile

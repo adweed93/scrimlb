@@ -1445,7 +1445,7 @@ function renderStrikeZone(pitches, lastPitch, batSide) {
   const zoneH = zoneB - zoneT;
   const zoneW = zoneR - zoneL;
   const batterImg = '';
-  const batterHtml = batSide ? `<img src="/static/batter_${batSide==='L'?'left':'right'}.png" style="position:absolute;height:95%;bottom:0;${batSide==='L'?'left:5px':'right:5px'};opacity:0.6;filter:hue-rotate(${window._batterHue||0}deg) saturate(${window._batterSat||1});pointer-events:none"/>` : '';
+  const batterHtml = batSide ? `<img src="/static/batter_${batSide==='L'?'left':'right'}.png" style="position:absolute;height:95%;bottom:0;${batSide==='L'?'left:5px':'right:5px'};opacity:0.6;filter:${window._batterFilter||''};pointer-events:none"/>` : '';
   return `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative;display:inline-block">
     ${batterHtml}
     <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="position:relative;z-index:1">
@@ -1496,39 +1496,38 @@ let _lastAnimatedAbIndex = -1;
 let _lastAnimatedPitchCount = 0;
 let _lastUserNavTime = 0;
 let _liveBatterId = null;
-// Team jersey hue-rotate (degrees from red) and saturation [home, away]
-// Home = team primary color jersey, Away = gray/muted
-const _teamJersey = {
-  109:[{h:0,s:1.2},{h:0,s:0.2}],     // ARI Diamondbacks - red
-  144:[{h:220,s:1.2},{h:220,s:0.3}],  // ATL Braves - navy
-  110:[{h:20,s:1.5},{h:20,s:0.3}],    // BAL Orioles - orange
-  111:[{h:0,s:1.2},{h:0,s:0.2}],      // BOS Red Sox - red
-  112:[{h:210,s:1.2},{h:210,s:0.3}],  // CHC Cubs - blue
-  145:[{h:0,s:0},{h:0,s:0}],          // CWS White Sox - black
-  113:[{h:0,s:1.2},{h:0,s:0.2}],      // CIN Reds - red
-  114:[{h:0,s:1.2},{h:0,s:0.2}],      // CLE Guardians - red
-  115:[{h:260,s:0.8},{h:260,s:0.3}],  // COL Rockies - purple
-  116:[{h:220,s:1.2},{h:220,s:0.3}],  // DET Tigers - navy
-  117:[{h:25,s:1.5},{h:25,s:0.3}],    // HOU Astros - orange
-  118:[{h:210,s:1.2},{h:210,s:0.3}],  // KC Royals - blue
-  108:[{h:0,s:1.2},{h:0,s:0.2}],      // LAA Angels - red
-  119:[{h:200,s:1.2},{h:200,s:0.3}],  // LAD Dodgers - blue
-  146:[{h:200,s:1.5},{h:200,s:0.3}],  // MIA Marlins - blue
-  158:[{h:220,s:1},{h:220,s:0.3}],    // MIL Brewers - navy/gold
-  142:[{h:220,s:1.2},{h:220,s:0.3}],  // MIN Twins - navy
-  121:[{h:20,s:1.5},{h:20,s:0.3}],    // NYM Mets - orange
-  147:[{h:220,s:1.2},{h:220,s:0.3}],  // NYY Yankees - navy
-  133:[{h:160,s:1},{h:160,s:0.3}],    // OAK Athletics - green
-  143:[{h:0,s:1.2},{h:0,s:0.2}],      // PHI Phillies - red
-  134:[{h:40,s:1.2},{h:40,s:0.3}],    // PIT Pirates - gold
-  135:[{h:25,s:0.8},{h:25,s:0.3}],    // SD Padres - brown
-  137:[{h:20,s:1.5},{h:20,s:0.3}],    // SF Giants - orange
-  136:[{h:180,s:1},{h:180,s:0.3}],    // SEA Mariners - teal
-  138:[{h:350,s:1.2},{h:350,s:0.2}],  // STL Cardinals - red
-  139:[{h:200,s:0.8},{h:200,s:0.3}],  // TB Rays - light blue
-  140:[{h:210,s:1.2},{h:210,s:0.3}],  // TEX Rangers - blue
-  141:[{h:210,s:1.2},{h:210,s:0.3}],  // TOR Blue Jays - blue
-  120:[{h:0,s:1.2},{h:0,s:0.2}],      // WSH Nationals - red
+// Team jersey: [home hue-rotate, home saturate, primary hex color]
+const _teamColors = {
+  109:{h:0,s:1.2,c:'#A71930'},     // ARI Diamondbacks
+  144:{h:220,s:1.2,c:'#13274F'},   // ATL Braves
+  110:{h:20,s:1.5,c:'#DF4601'},    // BAL Orioles
+  111:{h:0,s:1.2,c:'#BD3039'},     // BOS Red Sox
+  112:{h:210,s:1.2,c:'#0E3386'},   // CHC Cubs
+  145:{h:0,s:0,c:'#27251F'},       // CWS White Sox
+  113:{h:0,s:1.2,c:'#C6011F'},     // CIN Reds
+  114:{h:0,s:1.2,c:'#E31937'},     // CLE Guardians
+  115:{h:260,s:0.8,c:'#333366'},   // COL Rockies
+  116:{h:220,s:1.2,c:'#0C2C56'},   // DET Tigers
+  117:{h:25,s:1.5,c:'#EB6E1F'},    // HOU Astros
+  118:{h:210,s:1.2,c:'#004687'},   // KC Royals
+  108:{h:0,s:1.2,c:'#BA0021'},     // LAA Angels
+  119:{h:200,s:1.2,c:'#005A9C'},   // LAD Dodgers
+  146:{h:200,s:1.5,c:'#0077C8'},   // MIA Marlins
+  158:{h:220,s:1,c:'#12284B'},     // MIL Brewers
+  142:{h:220,s:1.2,c:'#002B5C'},   // MIN Twins
+  121:{h:20,s:1.5,c:'#FF5910'},    // NYM Mets
+  147:{h:220,s:1.2,c:'#003087'},   // NYY Yankees
+  133:{h:160,s:1,c:'#003831'},     // OAK Athletics
+  143:{h:0,s:1.2,c:'#E81828'},     // PHI Phillies
+  134:{h:40,s:1.2,c:'#FDB827'},    // PIT Pirates
+  135:{h:25,s:0.8,c:'#2F241D'},    // SD Padres
+  137:{h:20,s:1.5,c:'#FD5A1E'},    // SF Giants
+  136:{h:180,s:1,c:'#005C5C'},     // SEA Mariners
+  138:{h:350,s:1.2,c:'#C41E3A'},   // STL Cardinals
+  139:{h:200,s:0.8,c:'#092C5C'},   // TB Rays
+  140:{h:210,s:1.2,c:'#003278'},   // TEX Rangers
+  141:{h:210,s:1.2,c:'#134A8E'},   // TOR Blue Jays
+  120:{h:0,s:1.2,c:'#AB0003'},     // WSH Nationals
 };
 
 function abEventColor(ev) {
@@ -1627,10 +1626,13 @@ function renderSelectedAtBat() {
 
   // Set jersey color for batter (top=away batting away jersey, bottom=home batting home jersey)
   const batterTeamId = ab.half === 'top' ? window._boxAwayId : window._boxHomeId;
-  const jerseyIdx = ab.half === 'top' ? 1 : 0; // away=1, home=0
-  const jersey = (_teamJersey[batterTeamId]||[{h:0,s:1},{h:0,s:0.3}])[jerseyIdx];
-  window._batterHue = jersey.h;
-  window._batterSat = jersey.s;
+  const isHome = ab.half === 'bottom';
+  const team = _teamColors[batterTeamId] || {h:0,s:1,c:'#888'};
+  if (isHome) {
+    window._batterFilter = `hue-rotate(${team.h}deg) saturate(${team.s})`;
+  } else {
+    window._batterFilter = `grayscale(1) brightness(0.8) drop-shadow(0 0 3px ${team.c})`;
+  }
   // Pitch log on opposite side of batter (righty=right, lefty=left)
   window._pitchLogSide = ab.bat_side === 'L' ? 'left' : 'right';
 

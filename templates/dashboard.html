@@ -1753,44 +1753,74 @@ function abReplay() {
 }
 
 function buildInningNav() {
-  const nav = document.getElementById('ab-inning-nav');
-  if (!nav || !_boxAtBats.length) return;
-  const innings = [];
+  const track = document.getElementById('ab-inning-track');
+  if (!track || !_boxAtBats.length) return;
+  window._innWheel = [];
   _boxAtBats.forEach((ab, i) => {
     const key = ab.half + ab.inning;
-    if (!innings.length || innings[innings.length-1].key !== key) {
-      innings.push({key, half: ab.half, inning: ab.inning, idx: i});
+    if (!window._innWheel.length || window._innWheel[window._innWheel.length-1].key !== key) {
+      window._innWheel.push({key, half: ab.half, inning: ab.inning, idx: i});
     }
   });
-  let html = '';
-  innings.forEach(inn => {
-    html += `<span data-inn="${inn.key}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;color:var(--muted);font-size:11px;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:12px">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
+  track.innerHTML = window._innWheel.map((inn, i) => {
+    return `<span data-widx="${i}" onclick="jumpToInning(${inn.idx})" style="scroll-snap-align:center;cursor:pointer;font-size:12px;padding:6px 12px;white-space:nowrap;flex-shrink:0;border-radius:12px;color:var(--muted);transition:all .15s">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
+  }).join('');
+  track.onwheel = (e) => { e.preventDefault(); _wheelNav(e.deltaY > 0 ? 1 : -1); };
+  let scrollTimer;
+  track.onscroll = () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(_wheelSnapped, 150); };
+}
+
+function _wheelNav(dir) {
+  if (!window._innWheel) return;
+  const ab = _boxAtBats[_boxAbIndex];
+  const key = ab.half + ab.inning;
+  let cur = window._innWheel.findIndex(w => w.key === key);
+  cur += dir;
+  if (cur >= window._innWheel.length) cur = 0;
+  if (cur < 0) cur = window._innWheel.length - 1;
+  jumpToInning(window._innWheel[cur].idx);
+}
+
+function _wheelSnapped() {
+  const track = document.getElementById('ab-inning-track');
+  if (!track || !window._innWheel) return;
+  const center = track.getBoundingClientRect().left + track.getBoundingClientRect().width / 2;
+  let closest = null, closestDist = Infinity;
+  track.querySelectorAll('span[data-widx]').forEach(el => {
+    const rect = el.getBoundingClientRect();
+    const dist = Math.abs((rect.left + rect.width/2) - center);
+    if (dist < closestDist) { closestDist = dist; closest = el; }
   });
-  nav.innerHTML = html;
+  if (closest) {
+    const idx = parseInt(closest.dataset.widx);
+    const inn = window._innWheel[idx];
+    const ab = _boxAtBats[_boxAbIndex];
+    if (inn && (inn.half + inn.inning) !== (ab.half + ab.inning)) {
+      jumpToInning(inn.idx);
+    }
+  }
 }
 
 function highlightInningNav() {
-  const nav = document.getElementById('ab-inning-nav');
-  if (!nav || !_boxAtBats.length) return;
+  const track = document.getElementById('ab-inning-track');
+  if (!track || !_boxAtBats.length || !window._innWheel) return;
   const ab = _boxAtBats[_boxAbIndex];
   if (!ab) return;
   const key = ab.half + ab.inning;
-  const innings = [];
-  _boxAtBats.forEach((a, i) => {
-    const k = a.half + a.inning;
-    if (!innings.length || innings[innings.length-1].key !== k) {
-      innings.push({key: k, half: a.half, inning: a.inning, idx: i});
-    }
+  const activeIdx = window._innWheel.findIndex(w => w.key === key);
+  track.querySelectorAll('span[data-widx]').forEach(el => {
+    const i = parseInt(el.dataset.widx);
+    const active = i === activeIdx;
+    el.style.color = active ? '#000' : 'var(--muted)';
+    el.style.fontWeight = active ? '700' : '400';
+    el.style.background = active ? 'var(--green)' : 'none';
+    el.style.transform = active ? 'scale(1.15)' : 'scale(0.9)';
   });
-  nav.innerHTML = innings.map(inn => {
-    const active = inn.key === key;
-    return `<span data-inn="${inn.key}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;font-size:10px;padding:3px 5px;white-space:nowrap;flex-shrink:0;border-radius:10px;color:${active?'#000':'var(--muted)'};font-weight:${active?'700':'400'};background:${active?'var(--green)':'none'}">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
-  }).join('');
-  const activeEl = nav.querySelector(`span[data-inn="${key}"]`);
+  const activeEl = track.querySelector(`span[data-widx="${activeIdx}"]`);
   if (activeEl) {
-    const navRect = nav.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
     const elRect = activeEl.getBoundingClientRect();
-    nav.scrollLeft += (elRect.left + elRect.width/2) - (navRect.left + navRect.width/2);
+    track.scrollLeft += (elRect.left + elRect.width/2) - (trackRect.left + trackRect.width/2);
   }
 }
 
@@ -1820,7 +1850,7 @@ async function loadAtBatScroller(gameId) {
       <button id="ab-next-btn" onclick="abNav(1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer">▶</button>
     </div>
     <div id="ab-counter" style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px"></div>
-    <div id="ab-inning-nav" style="display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:2px;margin-top:8px;padding:4px 0;justify-content:center"></div>`;
+    <div id="ab-inning-nav" style="position:relative;height:60px;overflow:hidden;margin-top:8px;-webkit-mask-image:linear-gradient(to right,transparent,black 30%,black 70%,transparent);mask-image:linear-gradient(to right,transparent,black 30%,black 70%,transparent)"><div id="ab-inning-track" style="display:flex;align-items:center;height:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 40%"></div></div>`;
     buildInningNav();
     renderSelectedAtBat();
   } catch(e) { el.innerHTML = ''; }

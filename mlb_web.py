@@ -1800,6 +1800,7 @@ def game_plays(game_id):
                 "half": about.get("halfInning", ""),
                 "batter": matchup.get("batter", {}).get("fullName", ""),
                 "batter_id": matchup.get("batter", {}).get("id", 0),
+                "bat_side": matchup.get("batSide", {}).get("code", "R"),
                 "pitcher": matchup.get("pitcher", {}).get("fullName", ""),
                 "pitcher_id": matchup.get("pitcher", {}).get("id", 0),
                 "event": result.get("event", ""),
@@ -1849,6 +1850,7 @@ def game_live_feed(game_id):
         batter_obj = offense.get("batter", {})
         batter = batter_obj.get("fullName", "")
         batter_id = batter_obj.get("id", 0)
+        bat_side = plays.get("currentPlay", {}).get("matchup", {}).get("batSide", {}).get("code", "R")
         pitcher_info = linescore.get("defense", {}).get("pitcher", {})
         pitcher = pitcher_info.get("fullName", "")
         pitcher_id = pitcher_info.get("id", 0)
@@ -1914,6 +1916,7 @@ def game_live_feed(game_id):
             "count": count,
             "batter": batter,
             "batter_id": batter_id,
+            "bat_side": bat_side,
             "pitcher": pitcher,
             "pitcher_id": pitcher_id,
             "batter_stats": batter_stats,

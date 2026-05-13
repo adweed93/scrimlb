@@ -1913,6 +1913,14 @@ def game_live_feed(game_id):
         inning = linescore.get("currentInning", 0)
         inning_half = linescore.get("inningHalf", "")
 
+        # Score
+        ls_teams = linescore.get("teams", {})
+        away_score = ls_teams.get("away", {}).get("runs", 0)
+        home_score = ls_teams.get("home", {}).get("runs", 0)
+        game_teams = feed.get("gameData", {}).get("teams", {})
+        away_abbr = game_teams.get("away", {}).get("abbreviation", "AWY")
+        home_abbr = game_teams.get("home", {}).get("abbreviation", "HME")
+
         return jsonify({
             "available": True,
             "runners": runners,
@@ -1926,7 +1934,11 @@ def game_live_feed(game_id):
             "inning": inning,
             "inning_half": inning_half,
             "last_pitch": last_pitch,
-            "pitches": pitches[-10:],  # Last 10 pitches of at-bat
+            "pitches": pitches[-10:],
+            "away_score": away_score,
+            "home_score": home_score,
+            "away_abbr": away_abbr,
+            "home_abbr": home_abbr,
         })
     except Exception as e:
         return jsonify({"available": False, "error": str(e)})

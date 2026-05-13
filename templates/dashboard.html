@@ -1786,6 +1786,12 @@ function highlightInningNav() {
     const active = inn.key === key;
     return `<span data-inn="${inn.key}" onclick="jumpToInning(${inn.idx})" style="cursor:pointer;font-size:11px;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:12px;color:${active?'#000':'var(--muted)'};font-weight:${active?'700':'400'};background:${active?'var(--green)':'none'}">${inn.half==='top'?'▲':'▼'}${inn.inning}</span>`;
   }).join('');
+  const activeEl = nav.querySelector(`span[data-inn="${key}"]`);
+  if (activeEl) {
+    const navRect = nav.getBoundingClientRect();
+    const elRect = activeEl.getBoundingClientRect();
+    nav.scrollLeft += (elRect.left + elRect.width/2) - (navRect.left + navRect.width/2);
+  }
 }
 
 function jumpToInning(idx) {

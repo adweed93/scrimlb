@@ -1443,9 +1443,10 @@ function renderStrikeZone(pitches, lastPitch, batSide) {
   // Batter image with team-colored jersey (hue-rotate from red base)
   const isLeft = batSide === 'L';
   const zoneH = zoneB - zoneT;
-  const batH = zoneH * 2.5;
-  const batW = batH * 0.55;
-  const batterImg = batSide ? `<image href="/static/batter_${isLeft?'left':'right'}.png" x="${isLeft ? zoneR - 15 : zoneL - batW + 15}" y="${zoneB - batH + 5}" width="${batW}" height="${batH}" opacity="0.45" style="filter:hue-rotate(${window._batterHue||0}deg) saturate(${window._batterSat||1})"/>` : '';
+  const zoneW = zoneR - zoneL;
+  const batH = h * 0.9;
+  const batW = batH * 0.7;
+  const batterImg = batSide ? `<image href="/static/batter_${isLeft?'left':'right'}.png" x="${isLeft ? zoneR - batW*0.15 : zoneL - batW*0.85}" y="${h - batH - 2}" width="${batW}" height="${batH}" opacity="0.4" style="filter:hue-rotate(${window._batterHue||0}deg) saturate(${window._batterSat||1})"/>` : '';
   return `<div style="display:flex;flex-direction:column;align-items:center">
     <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
       ${batterImg}

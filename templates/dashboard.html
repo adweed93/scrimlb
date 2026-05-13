@@ -1416,13 +1416,13 @@ function renderDiamond(runners, count) {
 }
 
 function renderStrikeZone(pitches, lastPitch) {
-  const w = 130, h = 150, pad = 20;
-  // Strike zone boundaries in feet (plate is 17" = 1.417ft wide, zone ~1.5-3.5 height)
-  const zoneXMin = -0.83, zoneXMax = 0.83;
-  const zoneYMin = 1.5, zoneYMax = 3.5;
-  // Map full view to slightly wider than zone so edge pitches are visible
-  const viewXMin = -1.5, viewXMax = 1.5;
-  const viewYMin = 1.0, viewYMax = 4.0;
+  const w = 120, h = 160, pad = 15;
+  // Strike zone: 17" plate = -0.708 to 0.708 ft, typical height 1.6-3.4 ft
+  const zoneXMin = -0.708, zoneXMax = 0.708;
+  const zoneYMin = 1.6, zoneYMax = 3.4;
+  // View window (wider than zone so outside pitches show)
+  const viewXMin = -2.0, viewXMax = 2.0;
+  const viewYMin = 0.5, viewYMax = 4.5;
   const zoneL = pad + ((zoneXMin - viewXMin) / (viewXMax - viewXMin)) * (w - 2*pad);
   const zoneR = pad + ((zoneXMax - viewXMin) / (viewXMax - viewXMin)) * (w - 2*pad);
   const zoneT = pad + ((viewYMax - zoneYMax) / (viewYMax - viewYMin)) * (h - 2*pad);

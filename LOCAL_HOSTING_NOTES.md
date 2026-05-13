@@ -5,7 +5,18 @@
 - Running locally on Windows (no Docker yet - enabling virtualization in BIOS)
 - Domain: scrimlb.com (bought on GoDaddy, nameservers pointed to Cloudflare)
 
-## How to Start the App (2 terminals needed)
+## How to Deploy Changes (IMPORTANT)
+The tunnel container uses `network_mode: "service:web"` — it shares the web container's network namespace. 
+**NEVER** use `docker compose up -d --build web` alone — it recreates the web container and kills the tunnel's network (causes 502).
+
+**Correct deploy command:**
+```powershell
+cd C:\Users\Austin\scrimlb; docker compose down; docker compose up -d
+```
+
+This tears down both containers and brings them back up together with a fresh shared network.
+
+## How to Start the App (Docker - CURRENT METHOD)
 
 ### Terminal 1 - Flask App:
 ```powershell

@@ -1773,15 +1773,24 @@ function highlightInningNav() {
   const nav = document.getElementById('ab-inning-nav');
   if (!nav || !_boxAtBats.length) return;
   const ab = _boxAtBats[_boxAbIndex];
+  if (!ab) return;
   const key = ab.half + ab.inning;
   let activeEl = null;
-  nav.querySelectorAll('span[data-inn]').forEach(el => {
-    const active = el.dataset.inn === key;
-    el.style.color = active ? '#000' : 'var(--muted)';
-    el.style.fontWeight = active ? '700' : '400';
-    el.style.background = active ? 'var(--green)' : 'none';
-    if (active) activeEl = el;
-  });
+  const spans = nav.querySelectorAll('span[data-inn]');
+  for (let i = 0; i < spans.length; i++) {
+    spans[i].style.color = 'var(--muted)';
+    spans[i].style.fontWeight = '400';
+    spans[i].style.background = 'none';
+  }
+  for (let i = 0; i < spans.length; i++) {
+    if (spans[i].dataset.inn === key) {
+      spans[i].style.color = '#000';
+      spans[i].style.fontWeight = '700';
+      spans[i].style.background = 'var(--green)';
+      activeEl = spans[i];
+      break;
+    }
+  }
   if (activeEl) {
     const navRect = nav.getBoundingClientRect();
     const elRect = activeEl.getBoundingClientRect();

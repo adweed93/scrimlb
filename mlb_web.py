@@ -1494,23 +1494,16 @@ def game_preview(game_id):
                 pass
             return {"id": 0, "name": name, "era": "---", "wins": 0, "losses": 0, "whip": "---", "k": 0, "ip": "0", "predicted": predicted}
 
-        def predict_pitcher(team_id, game_date_str=None, exclude=None):
-            """Predict next starter by projecting the rotation order forward.
-            
-            Builds the rotation order from recent starts, finds how many team
-            games are between the last start and the target game, then cycles
-            through the rotation to pick the right slot.
-            """
-            try:
-                exclude = exclude or []
-                target_date = datetime.strptime(game_date_str, "%Y-%m-%d").date() if game_date_str else datetime.now().date()
-                start = (target_date - timedelta(days=35)).strftime("%m/%d/%Y")
-                end = target_date.strftime("%m/%d/%Y")
+        def _build_team_rotation(team_id):
+            """Fetch season-long starter history for a team. Cached 6hrs."""
+            def _fetch():
+                today = datetime.now()
+                start = f"03/20/{today.year}"
+                end = today.strftime("%m/%d/%Y")
                 sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
                 finals = sorted([x for x in sched if x["status"] == "Final"], key=lambda x: x["game_date"])
-                # Build chronological starter list from completed games
                 starter_history = []
-                for fg in finals[-20:]:
+                for fg in finals:
                     try:
                         gd = statsapi.get("game", {"gamePk": fg["game_id"]})
                         side = "home" if fg.get("home_id") == team_id else "away"
@@ -1524,37 +1517,52 @@ def game_preview(game_id):
                                 starter_history.append(name)
                     except Exception:
                         continue
+                return starter_history
+            return _cached(f"rotation_{team_id}", _fetch, ttl_seconds=21600)
+
+        def predict_pitcher(team_id, game_date_str=None, exclude=None):
+            """Predict next starter by projecting the rotation order forward."""
+            try:
+                exclude = exclude or []
+                target_date = datetime.strptime(game_date_str, "%Y-%m-%d").date() if game_date_str else datetime.now().date()
+                starter_history = _build_team_rotation(team_id)
                 if not starter_history:
                     return None
-                # Also append announced starters for games between last final and target
+                # Append announced starters for upcoming games before target
+                end = target_date.strftime("%m/%d/%Y")
+                sched = statsapi.schedule(team=team_id, start_date=datetime.now().strftime("%m/%d/%Y"), end_date=end)
                 upcoming = sorted(
                     [x for x in sched if x["status"] != "Final" and x.get("game_date", "") <= game_date_str],
                     key=lambda x: x["game_date"]
                 )
+                extended_history = list(starter_history)
                 for ug in upcoming:
                     side_key = "away_probable_pitcher" if ug.get("away_id") == team_id else "home_probable_pitcher"
                     announced = ug.get(side_key)
                     if announced:
-                        starter_history.append(announced)
-                # Identify true rotation members (2+ starts), filter out spot starters
+                        extended_history.append(announced)
+                # Identify true rotation members (3+ starts season-long), filter spot starters
                 from collections import Counter
                 start_counts = Counter(starter_history)
-                rotation_members = {name for name, count in start_counts.items() if count >= 2}
-                # Build rotation order from most recent appearances (preserving sequence)
+                rotation_members = {name for name, count in start_counts.items() if count >= 3}
+                # Fallback: if fewer than 4 qualify, lower to 2+ starts
+                if len(rotation_members) < 4:
+                    rotation_members = {name for name, count in start_counts.items() if count >= 2}
+                # Build rotation order from most recent appearances
                 rotation = []
-                for name in reversed(starter_history):
+                for name in reversed(extended_history):
                     if name in rotation_members and name not in rotation:
                         rotation.append(name)
-                rotation.reverse()  # chronological order
+                rotation.reverse()
                 if not rotation:
                     return None
-                # Count how many team games from last final to target (inclusive of target)
+                # Count games ahead
                 games_ahead = len([x for x in upcoming if x.get("game_date", "") <= game_date_str])
                 if games_ahead < 1:
                     games_ahead = 1
-                # Find the last rotation member who started (skip spot starters)
+                # Find last rotation member who started
                 last_starter = None
-                for name in reversed(starter_history):
+                for name in reversed(extended_history):
                     if name in rotation_members:
                         last_starter = name
                         break
@@ -1566,7 +1574,6 @@ def game_preview(game_id):
                     last_idx = 0
                 predicted_idx = (last_idx + games_ahead) % len(rotation)
                 predicted = rotation[predicted_idx]
-                # If predicted is in exclude list, advance one more slot
                 if predicted in exclude:
                     predicted_idx = (predicted_idx + 1) % len(rotation)
                     predicted = rotation[predicted_idx]

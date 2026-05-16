@@ -1466,14 +1466,16 @@ function renderPitchLog(pitches, abEvent) {
   const el = document.getElementById('ab-pitch-log');
   if (!el) return;
   if (!pitches || !pitches.length) { el.innerHTML = ''; return; }
+  const _isOutEvent = (ev) => ev && /out|Out|DP|Forceout|Strikeout|Sac|Caught|Field Out/i.test(ev);
   function pitchColor(c, p, i) { 
     // All foul types: yellow if already at 2 strikes
     if ((c==='F'||c==='T'||c==='L'||c==='R'||c==='O') && p.strikes >= 2 && i > 0 && pitches[i-1].strikes >= 2) return '#ffeb3b';
     if (c==='H') return '#ff9800';
     if (c==='B'||c==='*B'||c==='V') return '#4caf50';
-    if (c==='X'||c==='D'||c==='E') return '#2196f3';
-    // Bunt in play (M code on last pitch with result) - blue unless out
-    if (c==='M' && i === pitches.length-1 && abEvent && !abEvent.match(/out|Out|DP|Error|Strikeout|Forceout/i)) return '#2196f3';
+    // Ball in play: purple if out, blue if safe
+    if (c==='X'||c==='D'||c==='E') return (i === pitches.length-1 && _isOutEvent(abEvent)) ? '#ab47bc' : '#2196f3';
+    // Bunt in play - purple if out, blue if safe
+    if (c==='M' && i === pitches.length-1 && abEvent) return _isOutEvent(abEvent) ? '#ab47bc' : '#2196f3';
     return '#f44336'; 
   }
   const _shortEvent = {'Grounded Into DP':'Ground DP','Fielders Choice Out':'FC Out','Fielders Choice':'FC','Catcher Interference':'Catch Int','Fan Interference':'Fan Int','Sac Fly Double Play':'Sac Fly DP','Strikeout Double Play':'K DP','Sacrifice Bunt':'Sac Bunt','Sacrifice Fly':'Sac Fly','Bunt Groundout':'Bunt Out','Hit By Pitch':'HBP','Intent Walk':'IBB','Bunt Pop Out':'Bunt Out','Bunt Lineout':'Bunt Out','Groundout':'GrdOut','Lineout':'LineOut','Flyout':'FlyOut','Pop Out':'PopOut','Forceout':'ForceO','Strikeout':'K','Double Play':'DblPly','Triple Play':'TrpPly','Field Out':'FldOut','Field Error':'Error'};
@@ -1541,6 +1543,7 @@ function abEventColor(ev) {
   if (e.includes('double') || e.includes('triple')) return 'var(--green)';
   if (e.includes('single') || e.includes('walk') || e.includes('hit by pitch')) return 'var(--blue)';
   if (e.includes('strikeout')) return 'var(--red)';
+  if (/out|dp|forceout|sac|caught|field out/i.test(ev)) return '#ab47bc';
   return 'var(--muted)';
 }
 
@@ -1556,7 +1559,7 @@ function renderAbCount(balls, strikes, outs) {
   el.style.right = isLefty ? '8px' : '';
   el.style.left = isLefty ? '' : '8px';
   const dot = (filled, color) => `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${filled?color:'#333'}"></span>`;
-  el.innerHTML = `<div style="display:flex;gap:2px;align-items:center"><span style="width:10px">B</span>${[0,1,2,3].map(i=>dot(i<balls,'#4caf50')).join('')}</div><div style="display:flex;gap:2px;align-items:center"><span style="width:10px">S</span>${[0,1,2].map(i=>dot(i<strikes,'#f44336')).join('')}</div><div style="display:flex;gap:2px;align-items:center"><span style="width:10px">O</span>${[0,1,2].map(i=>dot(i<outs,'#ff9800')).join('')}</div>`;
+  el.innerHTML = `<div style="display:flex;gap:2px;align-items:center"><span style="width:10px">B</span>${[0,1,2,3].map(i=>dot(i<balls,'#4caf50')).join('')}</div><div style="display:flex;gap:2px;align-items:center"><span style="width:10px">S</span>${[0,1,2].map(i=>dot(i<strikes,'#f44336')).join('')}</div><div style="display:flex;gap:2px;align-items:center"><span style="width:10px">O</span>${[0,1,2].map(i=>dot(i<outs,'#ab47bc')).join('')}</div>`;
 }
 
 function renderAbDiamond(runners) {

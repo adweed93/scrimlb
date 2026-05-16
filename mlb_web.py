@@ -1575,15 +1575,7 @@ def game_preview(game_id):
                 # Fallback: if fewer than 4 qualify, lower to 2+ starts
                 if len(rotation_members) < 4:
                     rotation_members = {name for name, count in start_counts.items() if count >= 2}
-                # Build rotation order from most recent appearances
-                rotation = []
-                for name in reversed(extended_history):
-                    if name in rotation_members and name not in rotation:
-                        rotation.append(name)
-                rotation.reverse()
-                if not rotation:
-                    return None
-                # Filter out players not on active roster (IL, optioned, etc.)
+                # Filter out players not on active roster (IL, optioned, etc.) BEFORE building order
                 def _get_active_pitchers(tid):
                     def _fetch():
                         try:
@@ -1598,11 +1590,35 @@ def game_preview(game_id):
                     return _cached(f"active_pitchers_{tid}", _fetch, ttl_seconds=3600)
                 active_pitchers = _get_active_pitchers(team_id)
                 if active_pitchers:
-                    rotation = [name for name in rotation if name in active_pitchers]
+                    rotation_members = {n for n in rotation_members if n in active_pitchers}
+                if not rotation_members:
+                    return None
+                # Build rotation order from the last full cycle of active rotation members
+                recent_rotation_sequence = []
+                for name in reversed(extended_history):
+                    if name in rotation_members:
+                        recent_rotation_sequence.append(name)
+                    if len(recent_rotation_sequence) >= len(rotation_members):
+                        break
+                # This gives us [most_recent, ..., oldest_in_cycle], reverse for forward order
+                recent_rotation_sequence.reverse()
+                # Deduplicate while preserving order (in case of back-to-back by same pitcher)
+                rotation = []
+                for name in recent_rotation_sequence:
+                    if name not in rotation:
+                        rotation.append(name)
                 if not rotation:
                     return None
-                # Count games ahead
-                games_ahead = len([x for x in upcoming if x.get("game_date", "") <= game_date_str])
+                # Count only unannounced games between last known starter and target
+                last_announced_date = ""
+                for ug in reversed(upcoming):
+                    side_key = "away_probable_pitcher" if ug.get("away_id") == team_id else "home_probable_pitcher"
+                    if ug.get(side_key):
+                        last_announced_date = ug["game_date"]
+                        break
+                games_ahead = len([x for x in upcoming
+                                   if x.get("game_date", "") <= game_date_str
+                                   and x.get("game_date", "") > last_announced_date])
                 if games_ahead < 1:
                     games_ahead = 1
                 # Find last rotation member who started

@@ -65,14 +65,16 @@ def _build_team_rotation_global(team_id):
     return _cached(f"rotation_{team_id}", _fetch, ttl_seconds=21600)
 
 def _warm_rotation_cache():
-    """Background task: pre-cache rotation data for all 30 teams."""
+    """Background task: pre-cache rotation data for all 30 teams, repeat every 6hrs."""
     import time
     time.sleep(5)  # let the app finish starting
-    for tid in ALL_TEAM_IDS:
-        try:
-            _build_team_rotation_global(tid)
-        except Exception:
-            pass
+    while True:
+        for tid in ALL_TEAM_IDS:
+            try:
+                _build_team_rotation_global(tid)
+            except Exception:
+                pass
+        time.sleep(21600)  # sleep 6 hours then refresh
 
 # Start background cache warming on app load
 import threading

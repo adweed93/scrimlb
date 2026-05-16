@@ -1629,31 +1629,33 @@ def game_preview(game_id):
 
         # Recent lineups from last game
         def get_lineup(team_id):
-            try:
-                start = (datetime.now() - timedelta(days=14)).strftime("%m/%d/%Y")
-                end = datetime.now().strftime("%m/%d/%Y")
-                sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
-                finals = [x for x in sched if x["status"] == "Final"]
-                if not finals:
-                    return [], True
-                gd = statsapi.get("game", {"gamePk": finals[-1]["game_id"]})
-                side = "home" if finals[-1].get("home_id") == team_id else "away"
-                box = gd["liveData"]["boxscore"]["teams"][side]
-                order = box.get("battingOrder", [])
-                players = box.get("players", {})
-                lineup = []
-                for pid in order[:9]:
-                    p = players.get(f"ID{pid}", {})
-                    lineup.append({"id": pid, "name": p.get("person", {}).get("fullName", "?"),
-                                   "pos": p.get("position", {}).get("abbreviation", "?")})
-                return lineup, True
-            except Exception:
-                return [], True
+            def _fetch():
+                try:
+                    start = (datetime.now() - timedelta(days=14)).strftime("%m/%d/%Y")
+                    end = datetime.now().strftime("%m/%d/%Y")
+                    sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
+                    finals = [x for x in sched if x["status"] == "Final"]
+                    if not finals:
+                        return ([], True)
+                    gd = statsapi.get("game", {"gamePk": finals[-1]["game_id"]})
+                    side = "home" if finals[-1].get("home_id") == team_id else "away"
+                    box = gd["liveData"]["boxscore"]["teams"][side]
+                    order = box.get("battingOrder", [])
+                    players = box.get("players", {})
+                    lineup = []
+                    for pid in order[:9]:
+                        p = players.get(f"ID{pid}", {})
+                        lineup.append({"id": pid, "name": p.get("person", {}).get("fullName", "?"),
+                                       "pos": p.get("position", {}).get("abbreviation", "?")})
+                    return (lineup, True)
+                except Exception:
+                    return ([], True)
+            return _cached(f"lineup_{team_id}", _fetch, ttl_seconds=300)
 
         # Check if official lineup is posted (game has battingOrder in live feed)
         def get_official_lineup(team_id, game_id, is_home):
             try:
-                gd = statsapi.get("game", {"gamePk": game_id})
+                gd = _cached(f"game_feed_{game_id}", lambda: statsapi.get("game", {"gamePk": game_id}), ttl_seconds=60)
                 side = "home" if is_home else "away"
                 box = gd["liveData"]["boxscore"]["teams"][side]
                 order = box.get("battingOrder", [])
@@ -1669,43 +1671,56 @@ def game_preview(game_id):
                 pass
             return None, True
 
-        # Try official lineup first, fall back to predicted (from last game)
-        away_lineup, away_lineup_predicted = get_official_lineup(away_id, game_id, False)
-        if away_lineup is None:
-            away_lineup, away_lineup_predicted = get_lineup(away_id)
-        home_lineup, home_lineup_predicted = get_official_lineup(home_id, game_id, True)
-        if home_lineup is None:
-            home_lineup, home_lineup_predicted = get_lineup(home_id)
-
-        # Series history (last 30 days between these teams)
-        series = []
-        try:
-            start = (datetime.now() - timedelta(days=60)).strftime("%m/%d/%Y")
-            end = datetime.now().strftime("%m/%d/%Y")
-            matchups = statsapi.schedule(team=away_id, opponent=home_id, start_date=start, end_date=end)
-            for m in matchups:
-                if m["status"] == "Final":
-                    series.append({"date": m["game_date"], "away": m["away_name"], "home": m["home_name"],
-                                   "away_score": m.get("away_score", 0), "home_score": m.get("home_score", 0),
-                                   "game_id": m.get("game_id")})
-        except Exception:
-            pass
-
         # Injuries (IL players for both teams)
         def get_injuries(team_id):
+            def _fetch():
+                try:
+                    roster = statsapi.get("team_roster", {"teamId": team_id, "rosterType": "fullRoster"})
+                    il = []
+                    for p in roster.get("roster", []):
+                        code = p.get("status", {}).get("code", "")
+                        if code in ("D7", "D10", "D15", "D60", "ILF", "RA"):
+                            il.append({"name": p["person"]["fullName"], "status": p["status"]["description"]})
+                    return il
+                except Exception:
+                    return []
+            return _cached(f"injuries_{team_id}", _fetch, ttl_seconds=1800)
+
+        # Run independent data fetches in parallel
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            fut_away_lineup = ex.submit(get_lineup, away_id)
+            fut_home_lineup = ex.submit(get_lineup, home_id)
+            fut_away_injuries = ex.submit(get_injuries, away_id)
+            fut_home_injuries = ex.submit(get_injuries, home_id)
+            fut_official_away = ex.submit(get_official_lineup, away_id, game_id, False)
+            fut_official_home = ex.submit(get_official_lineup, home_id, game_id, True)
+
+        away_official, away_off_pred = fut_official_away.result()
+        home_official, home_off_pred = fut_official_home.result()
+        if away_official is not None:
+            away_lineup, away_lineup_predicted = away_official, away_off_pred
+        else:
+            away_lineup, away_lineup_predicted = fut_away_lineup.result()
+        if home_official is not None:
+            home_lineup, home_lineup_predicted = home_official, home_off_pred
+        else:
+            home_lineup, home_lineup_predicted = fut_home_lineup.result()
+
+        away_injuries = fut_away_injuries.result()
+        home_injuries = fut_home_injuries.result()
+
+        # Series history (last 60 days between these teams) — cached 1hr
+        def _get_series():
             try:
-                roster = statsapi.get("team_roster", {"teamId": team_id, "rosterType": "fullRoster"})
-                il = []
-                for p in roster.get("roster", []):
-                    code = p.get("status", {}).get("code", "")
-                    if code in ("D7", "D10", "D15", "D60", "ILF", "RA"):
-                        il.append({"name": p["person"]["fullName"], "status": p["status"]["description"]})
-                return il
+                start = (datetime.now() - timedelta(days=60)).strftime("%m/%d/%Y")
+                end = datetime.now().strftime("%m/%d/%Y")
+                matchups = statsapi.schedule(team=away_id, opponent=home_id, start_date=start, end_date=end)
+                return [{"date": m["game_date"], "away": m["away_name"], "home": m["home_name"],
+                         "away_score": m.get("away_score", 0), "home_score": m.get("home_score", 0),
+                         "game_id": m.get("game_id")} for m in matchups if m["status"] == "Final"]
             except Exception:
                 return []
-
-        away_injuries = get_injuries(away_id)
-        home_injuries = get_injuries(home_id)
+        series = _cached(f"series_{away_id}_{home_id}", _get_series, ttl_seconds=3600)
 
         # Weather (requires WEATHER_API_KEY env var)
         weather = None

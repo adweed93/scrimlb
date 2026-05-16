@@ -1692,7 +1692,7 @@ function renderSelectedAtBat() {
     renderPitchLog(shown, ab.event);
   } else {
     if (zone) zone.innerHTML = renderStrikeZone([], null, ab.bat_side);
-    renderAbCount(0, 0, 0);
+    renderAbCount(0, 0, pitches[0].outs||0);
     renderPitchLog([], ab.event);
   }
 

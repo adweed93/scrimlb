@@ -1742,8 +1742,8 @@ function abNav(dir) {
   if (_showingLiveCard && dir === -1) {
     _showingLiveCard = false;
     _lastUserNavTime = Date.now();
-    // Skip back one extra if last completed AB is same batter as live
-    if (_liveBatterId && _boxAtBats[_boxAbIndex] && _boxAtBats[_boxAbIndex].batter_id === _liveBatterId && _boxAbIndex > 0) {
+    // Go back from the last at-bat (which is the live one)
+    if (_boxAbIndex > 0) {
       _boxAbIndex--;
     }
     _lastAnimatedAbIndex = _boxAbIndex;

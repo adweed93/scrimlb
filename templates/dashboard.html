@@ -1312,7 +1312,7 @@ async function loadGamePreview(gameId) {
     d.series.forEach(s => {
       const awayWon = s.away_score > s.home_score;
       html += `<div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="loadBoxScore(${s.game_id})">
-        <span style="font-size:12px">${s.date}</span>
+        <span style="font-size:12px">${new Date(s.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
         <span style="font-size:12px"><span style="font-weight:${awayWon?'700':'400'}">${s.away_score}</span> - <span style="font-weight:${!awayWon?'700':'400'}">${s.home_score}</span></span>
       </div>`;
     });

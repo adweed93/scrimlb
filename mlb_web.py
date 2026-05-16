@@ -1494,15 +1494,24 @@ def game_preview(game_id):
                 pass
             return {"id": 0, "name": name, "era": "---", "wins": 0, "losses": 0, "whip": "---", "k": 0, "ip": "0", "predicted": predicted}
 
-        def predict_pitcher(team_id):
-            """Predict next starter based on last 5 starters rotation."""
+        def predict_pitcher(team_id, game_date_str=None, exclude=None):
+            """Predict next starter using rotation order and days rest.
+            
+            Args:
+                team_id: MLB team ID
+                game_date_str: YYYY-MM-DD date of the game to predict for
+                exclude: list of pitcher names to exclude (already pitching in earlier games)
+            """
             try:
-                start = (datetime.now() - timedelta(days=14)).strftime("%m/%d/%Y")
-                end = datetime.now().strftime("%m/%d/%Y")
+                exclude = exclude or []
+                target_date = datetime.strptime(game_date_str, "%Y-%m-%d").date() if game_date_str else datetime.now().date()
+                start = (target_date - timedelta(days=21)).strftime("%m/%d/%Y")
+                end = target_date.strftime("%m/%d/%Y")
                 sched = statsapi.schedule(team=team_id, start_date=start, end_date=end)
-                finals = [x for x in sched if x["status"] == "Final"]
-                starters = []
-                for fg in reversed(finals[-10:]):
+                finals = sorted([x for x in sched if x["status"] == "Final"], key=lambda x: x["game_date"])
+                # Build chronological list of (starter_name, game_date)
+                starter_history = []
+                for fg in finals[-12:]:
                     try:
                         gd = statsapi.get("game", {"gamePk": fg["game_id"]})
                         side = "home" if fg.get("home_id") == team_id else "away"
@@ -1512,15 +1521,49 @@ def game_preview(game_id):
                             pid = pitchers[0]
                             pdata = box.get("players", {}).get(f"ID{pid}", {})
                             name = pdata.get("person", {}).get("fullName", "")
-                            if name and name not in starters:
-                                starters.append(name)
-                            if len(starters) >= 5:
-                                break
+                            if name:
+                                starter_history.append((name, fg["game_date"]))
                     except Exception:
                         continue
-                # Predict: next in rotation after the most recent starter
-                if starters:
-                    return starters[-1] if len(starters) == 1 else starters[1]
+                # Also include announced probable pitchers for games between now and target
+                upcoming = [x for x in sched if x["status"] != "Final" and x.get("game_date", "") < game_date_str]
+                for ug in upcoming:
+                    side_key = "away_probable_pitcher" if ug.get("away_id") == team_id else "home_probable_pitcher"
+                    announced = ug.get(side_key)
+                    if announced:
+                        starter_history.append((announced, ug["game_date"]))
+                if not starter_history:
+                    return None
+                # Identify rotation members (pitched 2+ starts in window)
+                from collections import Counter
+                start_counts = Counter(name for name, _ in starter_history)
+                rotation = [name for name, count in start_counts.items() if count >= 2]
+                # Fallback: if fewer than 3 qualify, use last 5 unique starters
+                if len(rotation) < 3:
+                    seen = []
+                    for name, _ in reversed(starter_history):
+                        if name not in seen:
+                            seen.append(name)
+                        if len(seen) >= 5:
+                            break
+                    rotation = seen
+                # Find each rotation member's last start date (most recent per pitcher)
+                last_start = {}
+                for name, gdate in reversed(starter_history):
+                    if name in rotation and name not in last_start:
+                        last_start[name] = datetime.strptime(gdate, "%Y-%m-%d").date()
+                # Exclude pitchers already assigned to earlier games
+                for ex in exclude:
+                    last_start.pop(ex, None)
+                # Filter out pitchers without enough rest relative to target game date
+                eligible = {name: d for name, d in last_start.items() if (target_date - d).days >= 4}
+                if not eligible:
+                    eligible = {name: d for name, d in last_start.items() if (target_date - d).days >= 3}
+                if not eligible:
+                    return None
+                # Pick the pitcher with the longest rest
+                predicted = max(eligible, key=lambda n: (target_date - eligible[n]).days)
+                return predicted
             except Exception:
                 pass
             return None
@@ -1528,13 +1571,23 @@ def game_preview(game_id):
         away_pitcher = pitcher_info(g.get("away_probable_pitcher"))
         home_pitcher = pitcher_info(g.get("home_probable_pitcher"))
 
-        # If no official pitcher, predict one
+        # If no official pitcher, predict one (using game date and excluding known starters)
+        game_date_str = g.get("game_date")
+        # Collect known pitchers to exclude from predictions for the other side
+        exclude_away = []
+        exclude_home = []
+        if g.get("away_probable_pitcher"):
+            exclude_away.append(g["away_probable_pitcher"])
+        if g.get("home_probable_pitcher"):
+            exclude_home.append(g["home_probable_pitcher"])
+
         if not away_pitcher:
-            predicted_name = predict_pitcher(away_id)
+            predicted_name = predict_pitcher(away_id, game_date_str, exclude_away)
             if predicted_name:
                 away_pitcher = pitcher_info(predicted_name, predicted=True)
+                exclude_away.append(predicted_name)
         if not home_pitcher:
-            predicted_name = predict_pitcher(home_id)
+            predicted_name = predict_pitcher(home_id, game_date_str, exclude_home)
             if predicted_name:
                 home_pitcher = pitcher_info(predicted_name, predicted=True)
 

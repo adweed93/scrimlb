@@ -1556,6 +1556,24 @@ def game_preview(game_id):
                 rotation.reverse()
                 if not rotation:
                     return None
+                # Filter out players not on active roster (IL, optioned, etc.)
+                def _get_active_pitchers(tid):
+                    def _fetch():
+                        try:
+                            rd = statsapi.get("team_roster", {"teamId": tid, "rosterType": "active"})
+                            names = set()
+                            for p in rd.get("roster", []):
+                                if p.get("position", {}).get("abbreviation") == "P" or p.get("position", {}).get("type") == "Pitcher":
+                                    names.add(p.get("person", {}).get("fullName", ""))
+                            return names
+                        except Exception:
+                            return set()
+                    return _cached(f"active_pitchers_{tid}", _fetch, ttl_seconds=3600)
+                active_pitchers = _get_active_pitchers(team_id)
+                if active_pitchers:
+                    rotation = [name for name in rotation if name in active_pitchers]
+                if not rotation:
+                    return None
                 # Count games ahead
                 games_ahead = len([x for x in upcoming if x.get("game_date", "") <= game_date_str])
                 if games_ahead < 1:

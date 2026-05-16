@@ -333,8 +333,11 @@ def live_games():
                 entry["balls"] = ls.get("balls", 0)
                 entry["strikes"] = ls.get("strikes", 0)
                 entry["outs"] = ls.get("outs", 0)
+                offense = ls.get("offense", {})
+                entry["batter"] = offense.get("batter", {}).get("fullName", "")
             except Exception:
                 entry["balls"] = entry["strikes"] = entry["outs"] = 0
+                entry["batter"] = ""
             result["live"].append(entry)
         elif g["status"] in ("Final", "Game Over", "Completed Early"):
             entry["innings"] = g.get("current_inning", 9)

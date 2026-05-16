@@ -1654,9 +1654,10 @@ function renderSelectedAtBat() {
   // Position BSO opposite the batter image
   const bsoEl = document.getElementById('lb-bso');
   if (bsoEl) {
-    // Lefty image at left:5px -> BSO on right. Righty image at right:5px -> BSO on left.
-    bsoEl.style.left = ab.bat_side === 'L' ? 'auto' : '8px';
-    bsoEl.style.right = ab.bat_side === 'L' ? '8px' : 'auto';
+    // Righty batter -> BSO on right. Lefty batter -> BSO on left. Switch hitters use actual bat_side per AB.
+    const bsoRight = ab.bat_side !== 'L';
+    bsoEl.style.right = bsoRight ? '8px' : 'auto';
+    bsoEl.style.left = bsoRight ? 'auto' : '8px';
   }
 
   // Animate pitches one by one

@@ -359,20 +359,19 @@ function gameCard(g, status) {
   if (status==='live') {
     const b = g.balls||0, s = g.strikes||0, o = g.outs||0;
     const isTop = (g.inning_state||'').toLowerCase().includes('top');
+    const battingTeamId = isTop ? g.away_id : g.home_id;
     bso = `<div style="display:flex;gap:8px;padding:4px 12px;font-size:10px;color:var(--muted);align-items:center">
       <span>${b}-${s}</span>
       <span>O ${[...Array(3)].map((_,i)=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;background:${i<o?'#f44336':'#333'}"></span>`).join('')}</span>
-      ${g.batter?`<span style="margin-left:auto;font-size:9px">${g.batter}</span>`:''}
+      ${g.batter?`<span style="margin-left:auto;font-size:9px;display:flex;align-items:center;gap:4px">${teamLogo(battingTeamId,14)}${g.batter}</span>`:''}
     </div>`;
   }
 
-  const isTop = status==='live' && (g.inning_state||'').toLowerCase().includes('top');
   return `<div class="game-card" ${g.game_id?(status==='upcoming'?`onclick="loadGamePreview(${g.game_id})" style="cursor:pointer"`:`onclick="loadBoxScore(${g.game_id})" style="cursor:pointer"`):''}> 
     <div class="game-status"><span>${statusText}</span>${g.fav?'<span class="fav-badge">★ FAV</span>':''}</div>
     <div class="team-row">${teamLogo(g.away_id)}<span class="team-name">${g.away}</span><span class="team-score ${status==='final'?(awayWin?'winner':'loser'):''}">${status!=='upcoming'?g.away_score:''}</span></div>
-    ${status==='live'&&isTop?bso:''}
     <div class="team-row">${teamLogo(g.home_id)}<span class="team-name">${g.home}</span><span class="team-score ${status==='final'?(homeWin?'winner':'loser'):''}">${status!=='upcoming'?g.home_score:''}</span></div>
-    ${status==='live'&&!isTop?bso:''}
+    ${bso}
   </div>`;
 }
 
